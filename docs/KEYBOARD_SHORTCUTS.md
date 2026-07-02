@@ -189,9 +189,11 @@ The configurator has three areas cycled via `Tab` / `Shift+Tab`:
 ### Prompt Configurator Commands
 | Command | Alias | Description |
 |---------|-------|-------------|
-| `:prompt-new` | `:pn` | Open the configurator with current context (single message, bulk selection, or draft) |
-| `:prompt-refine <instruction>` | `:prf` | Refine the active prompt with the given instruction |
-| `:prompt-save` | `:ps` | Open the save dialog for the currently active prompt |
+| `:prompt new` | `:prompt n` | Open the configurator with current context (single message, bulk selection, or draft) |
+| `:prompt refine <instruction>` | `:prompt r <instruction>` | Refine the active prompt with the given instruction |
+| `:prompt save` | - | Open the save dialog for the currently active prompt |
+
+> The legacy top-level forms `:prompt-new` (`:pn`), `:prompt-refine` (`:prf`) and `:prompt-save` (`:ps`) still work as hidden aliases.
 
 ### Notes
 
