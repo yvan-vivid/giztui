@@ -522,9 +522,9 @@ func (a *App) rebuildActionPlanTree(state *actionPlanState) {
 		node := tview.NewTreeNode(a.topLevelNodeLabel(state, i)).SetSelectable(true).SetColor(colors.Text.Color())
 		node.SetReference(i) // category index
 		for _, id := range c.MessageIDs {
-			box := "☑" // same glyph the inbox uses for bulk selection
+			box := "█" // selection indicator matching inbox bulk mode
 			if state.excluded[id] {
-				box = "☐"
+				box = " "
 			}
 			subj, from := "(unknown)", ""
 			if m := state.metaByID[id]; m != nil {

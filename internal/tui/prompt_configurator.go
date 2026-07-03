@@ -207,7 +207,7 @@ func (a *App) openPromptConfigurator(pctx promptConfiguratorContext) {
 }
 
 // closePromptConfigurator closes the configurator and restores the original view.
-	// Synchronous cleanup — NEVER use QueueUpdateDraw in close paths (AGENTS.md rule).
+// Synchronous cleanup — NEVER use QueueUpdateDraw in close paths (AGENTS.md rule).
 func (a *App) closePromptConfigurator() {
 	if a.promptConfiguratorState != nil && a.promptConfiguratorState.streamingCancel != nil {
 		a.promptConfiguratorState.streamingCancel()

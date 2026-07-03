@@ -11,13 +11,14 @@ import (
 )
 
 // updateBulkSelectionStyling updates only the row styling based on current selections
-// without doing a full table rebuild to preserve focus
+// without doing a full table rebuild to preserve focus.
+// The focused row is handled by SetSelectedStyle (via updateTableSelectedStyle).
 func (a *App) updateBulkSelectionStyling(table *tview.Table) {
 	if !a.bulk.isMode() {
 		return
 	}
 
-	// Get colors for bulk selection
+	// Get colors for bulk selection (non-focused rows)
 	bulkBgColor := a.getBulkSelectionColor()
 	bulkTextColor := a.getBulkSelectionTextColor()
 
@@ -26,6 +27,8 @@ func (a *App) updateBulkSelectionStyling(table *tview.Table) {
 	normalBgColor := generalColors.Background.Color()
 	normalTextColor := generalColors.Text.Color()
 
+	curRow, _ := table.GetSelection()
+
 	// Apply styling to each row based on selection state
 	for row := 1; row < table.GetRowCount(); row++ { // Skip header row
 		messageID := a.getRowMessageID(row - 1) // Adjust for header
@@ -33,7 +36,7 @@ func (a *App) updateBulkSelectionStyling(table *tview.Table) {
 		// Determine colors based on selection state
 		var bgColor, textColor tcell.Color
 		isSelected := a.bulk.isSelected(messageID)
-		if isSelected {
+		if isSelected && curRow != row {
 			bgColor = bulkBgColor
 			textColor = bulkTextColor
 		} else {
@@ -49,14 +52,11 @@ func (a *App) updateBulkSelectionStyling(table *tview.Table) {
 			}
 		}
 
-		// Update the checkbox indicator in whichever column currently holds it.
-		// Layout is responsive: e.g. the numbers column (when show_message_numbers
-		// is enabled) shifts flags from column 0 to column 1. Scan for the glyph
-		// instead of hardcoding an index — and skip cells that don't have one so
-		// we don't pollute non-flags columns (like numbers) with a stray ☑/☐.
-		desired := '☐'
+		// Update the Sel column indicator (█ when selected, blank when not).
+		// The Sel column is identified by its header "Sel" in the config.
+		desired := " "
 		if isSelected {
-			desired = '☑'
+			desired = "█"
 		}
 		for col := 0; col < table.GetColumnCount(); col++ {
 			cell := table.GetCell(row, col)
@@ -64,14 +64,13 @@ func (a *App) updateBulkSelectionStyling(table *tview.Table) {
 				continue
 			}
 			runes := []rune(cell.Text)
-			if len(runes) == 0 || (runes[0] != '☑' && runes[0] != '☐') {
+			if len(runes) == 0 {
 				continue
 			}
-			if runes[0] != desired {
-				runes[0] = desired
-				cell.SetText(string(runes))
+			// The Sel column always has exactly 1 character (█ or space)
+			if runes[0] == '█' || (len(runes) == 1 && runes[0] == ' ') {
+				cell.SetText(desired)
 			}
-			break
 		}
 	}
 }
@@ -393,7 +392,7 @@ func (a *App) handleConfigurableKey(event *tcell.EventKey) bool {
 					a.bulk.add(a.ids[messageIndex])
 				}
 				a.refreshTableDisplay()
-				list.SetSelectedStyle(a.getSelectionStyle())
+				a.updateTableSelectedStyle(list)
 				go func() {
 					a.GetErrorHandler().ShowInfo(a.ctx, "Bulk mode — space/v=select, *=all, a=archive, d=trash, m=move, p=prompt, K=slack, O=obsidian, ESC=exit")
 				}()
@@ -401,7 +400,7 @@ func (a *App) handleConfigurableKey(event *tcell.EventKey) bool {
 				a.bulk.setMode(false)
 				a.bulk.clear()
 				a.refreshTableDisplay()
-				list.SetSelectedStyle(a.getSelectionStyle())
+				a.updateTableSelectedStyle(list)
 				go func() {
 					a.GetErrorHandler().ClearProgress()
 				}()
@@ -781,8 +780,8 @@ func (a *App) bindKeys() {
 							a.bulk.add(a.ids[messageIndex])
 						}
 						a.refreshTableDisplay()
-						// Keep focus highlight consistent (blue) even in Bulk mode
-						list.SetSelectedStyle(a.getSelectionStyle())
+						// Update selected style for bulk mode
+						a.updateTableSelectedStyle(list)
 						// Show status message asynchronously to avoid deadlock
 						go func() {
 							a.GetErrorHandler().ShowInfo(a.ctx, "Bulk mode — space/v=select, *=all, a=archive, d=trash, m=move, p=prompt, K=slack, O=obsidian, ESC=exit")
@@ -791,7 +790,7 @@ func (a *App) bindKeys() {
 						a.bulk.setMode(false)
 						a.bulk.clear()
 						a.refreshTableDisplay()
-						list.SetSelectedStyle(a.getSelectionStyle())
+						a.updateTableSelectedStyle(list)
 						// Clear status message asynchronously to avoid deadlock
 						go func() {
 							a.GetErrorHandler().ClearProgress()
@@ -811,8 +810,8 @@ func (a *App) bindKeys() {
 						a.bulk.add(a.ids[messageIndex])
 					}
 					a.refreshTableDisplay()
-					// Keep focus highlight consistent (blue) even in Bulk mode
-					list.SetSelectedStyle(a.getSelectionStyle())
+					// Update selected style for bulk mode
+					a.updateTableSelectedStyle(list)
 					// Show status message asynchronously to avoid deadlock
 					go func() {
 						a.GetErrorHandler().ShowInfo(a.ctx, "Bulk mode — space/v=select, *=all, a=archive, d=trash, m=move, p=prompt, K=slack, O=obsidian, ESC=exit")
@@ -821,7 +820,7 @@ func (a *App) bindKeys() {
 					a.bulk.setMode(false)
 					a.bulk.clear()
 					a.refreshTableDisplay()
-					list.SetSelectedStyle(a.getSelectionStyle())
+					a.updateTableSelectedStyle(list)
 					// Clear status message asynchronously to avoid deadlock
 					go func() {
 						a.GetErrorHandler().ClearProgress()
@@ -1477,6 +1476,11 @@ func (a *App) bindKeys() {
 				// Re-render list items so bulk selection backgrounds update when focus moves
 				a.refreshTableDisplay()
 
+				// Update selected style for bulk mode focus distinction
+				if table, ok := a.views["list"].(*tview.Table); ok {
+					a.updateTableSelectedStyle(table)
+				}
+
 				// CRITICAL: Update focus indicators to show list has focus during arrow navigation
 				// This was missing - causing visual focus loss even though actual focus stayed on list
 				a.updateFocusIndicators("list")
@@ -1548,8 +1552,8 @@ func (a *App) handleBulkSelect() bool {
 				// OBLITERATED: empty logger branch eliminated! 💥
 			}
 			a.refreshTableDisplay()
-			// Keep focus highlight consistent (blue) even in Bulk mode
-			list.SetSelectedStyle(a.getSelectionStyle())
+			// Update selected style for bulk mode
+			a.updateTableSelectedStyle(list)
 			// Update focus indicators after bulk select
 			a.updateFocusIndicators("list")
 			// Show status message asynchronously to avoid deadlock
@@ -1564,6 +1568,8 @@ func (a *App) handleBulkSelect() bool {
 			mid := a.ids[messageIndex]
 			a.bulk.toggle(mid)
 			a.refreshTableDisplay()
+			// Update selected style for bulk mode focus distinction
+			a.updateTableSelectedStyle(list)
 			// Update focus indicators after selection toggle
 			a.updateFocusIndicators("list")
 			// Show status message asynchronously to avoid deadlock

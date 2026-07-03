@@ -2065,6 +2065,40 @@ func (a *App) getSelectionStyle() tcell.Style {
 	return tcell.StyleDefault.Foreground(fgColor.Color()).Background(bgColor.Color())
 }
 
+// getBulkSelectionStyle returns the style for a row that is both bulk-selected and focused
+func (a *App) getBulkSelectionStyle() tcell.Style {
+	if a.currentTheme == nil {
+		fallbackTheme := a.getDefaultTheme()
+		bgColor, fgColor := fallbackTheme.GetBulkFocusedSelectionColors()
+		if bgColor == "" || fgColor == "" {
+			return a.getSelectionStyle()
+		}
+		return tcell.StyleDefault.Foreground(fgColor.Color()).Background(bgColor.Color())
+	}
+	bgColor, fgColor := a.currentTheme.GetBulkFocusedSelectionColors()
+	if bgColor == "" || fgColor == "" {
+		return a.getSelectionStyle()
+	}
+	return tcell.StyleDefault.Foreground(fgColor.Color()).Background(bgColor.Color())
+}
+
+// updateTableSelectedStyle updates the table's selected style based on bulk mode state.
+// In bulk mode, if the cursor is on a bulk-selected row, use the bulk-focused style.
+// Otherwise, use the normal cursor style.
+func (a *App) updateTableSelectedStyle(table *tview.Table) {
+	if !a.bulk.isMode() {
+		table.SetSelectedStyle(a.getSelectionStyle())
+		return
+	}
+	curRow, _ := table.GetSelection()
+	messageID := a.getRowMessageID(curRow - 1)
+	if a.bulk.isSelected(messageID) {
+		table.SetSelectedStyle(a.getBulkSelectionStyle())
+	} else {
+		table.SetSelectedStyle(a.getSelectionStyle())
+	}
+}
+
 // OBLITERATED: unused getBulkSelectionStyle function eliminated! 💥
 
 // OBLITERATED: unused getLabelColor function eliminated! 💥

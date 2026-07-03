@@ -30,8 +30,11 @@ gmailTUI:
         bg: "#44475a" # Selection background
         fg: "#f8f8f2" # Selection text
       bulk:
-        bg: "#373844" # Darker selection for bulk
-        fg: "#f8f8f2" # Bulk selection text
+        bg: "#44475a" # Multi-item selection background
+        fg: "#f8f8f2" # Multi-item selection text
+        focused:
+          bg: "#6272a4" # Focused + bulk-selected: brighter
+          fg: "#f8f8f2" # Light text
     input:
       bg: "#44475a" # Input field background
       fg: "#f8f8f2" # Input field text

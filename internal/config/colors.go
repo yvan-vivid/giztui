@@ -202,8 +202,12 @@ type InteractionColors struct {
 			Fg Color `yaml:"fg"` // Single item cursor text
 		} `yaml:"cursor"`
 		Bulk struct {
-			Bg Color `yaml:"bg"` // Multi-item selection background
-			Fg Color `yaml:"fg"` // Multi-item selection text
+			Bg      Color `yaml:"bg"` // Multi-item selection background
+			Fg      Color `yaml:"fg"` // Multi-item selection text
+			Focused struct {
+				Bg Color `yaml:"bg"` // Bulk-selected + focused row background
+				Fg Color `yaml:"fg"` // Bulk-selected + focused row text
+			} `yaml:"focused"`
 		} `yaml:"bulk"`
 	} `yaml:"selection"`
 	Input struct {
@@ -550,6 +554,15 @@ func (c *ColorsConfig) GetBulkSelectionColors() (bg, fg Color) {
 	return c.UI.BulkSelectionBgColor, c.UI.BulkSelectionFgColor
 }
 
+// GetBulkFocusedSelectionColors returns bulk+focused selection colors
+func (c *ColorsConfig) GetBulkFocusedSelectionColors() (bg, fg Color) {
+	if c.hasNewStructure() {
+		return c.Interaction.Selection.Bulk.Focused.Bg, c.Interaction.Selection.Bulk.Focused.Fg
+	}
+	// Legacy: use bulk colors as fallback
+	return c.UI.BulkSelectionBgColor, c.UI.BulkSelectionFgColor
+}
+
 // GetInputColors returns input field colors
 func (c *ColorsConfig) GetInputColors() (bg, fg, label Color) {
 	if c.hasNewStructure() {
@@ -598,8 +611,12 @@ func DefaultColors() *ColorsConfig {
 					Fg Color `yaml:"fg"`
 				} `yaml:"cursor"`
 				Bulk struct {
-					Bg Color `yaml:"bg"`
-					Fg Color `yaml:"fg"`
+					Bg      Color `yaml:"bg"`
+					Fg      Color `yaml:"fg"`
+					Focused struct {
+						Bg Color `yaml:"bg"`
+						Fg Color `yaml:"fg"`
+					} `yaml:"focused"`
 				} `yaml:"bulk"`
 			}{
 				Cursor: struct {
@@ -610,11 +627,22 @@ func DefaultColors() *ColorsConfig {
 					Fg: NewColor("#f8f8f2"), // Light selection text
 				},
 				Bulk: struct {
-					Bg Color `yaml:"bg"`
-					Fg Color `yaml:"fg"`
+					Bg      Color `yaml:"bg"`
+					Fg      Color `yaml:"fg"`
+					Focused struct {
+						Bg Color `yaml:"bg"`
+						Fg Color `yaml:"fg"`
+					} `yaml:"focused"`
 				}{
-					Bg: NewColor("#282a36"), // Subtle darker background
-					Fg: NewColor("#f8f8f2"), // Same text color
+					Bg: NewColor("#44475a"), // Multi-item selection background
+					Fg: NewColor("#f8f8f2"), // Multi-item selection text
+					Focused: struct {
+						Bg Color `yaml:"bg"`
+						Fg Color `yaml:"fg"`
+					}{
+						Bg: NewColor("#6272a4"), // Focused + bulk-selected: brighter
+						Fg: NewColor("#f8f8f2"), // Light text
+					},
 				},
 			},
 			Input: struct {

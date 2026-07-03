@@ -2,7 +2,6 @@ package tui
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/ajramos/giztui/internal/render"
@@ -51,13 +50,22 @@ func (a *App) configureTableForMode(table *tview.Table, mode render.DisplayMode)
 
 	// Set table properties
 	table.SetBorders(false).
-		SetSeparator('│').
+		SetSeparator(' ').
 		SetFixed(1, 0).            // Fix header row
 		SetSelectable(true, false) // Allow row selection only
 
 	// Create and populate header row
 	for col, columnConfig := range config {
-		cell := tview.NewTableCell(columnConfig.Header).
+		header := columnConfig.Header
+		// Dynamic Sel column header: █ in bulk mode, blank in normal mode
+		if header == "Sel" {
+			if a.bulk.isMode() {
+				header = "█"
+			} else {
+				header = " "
+			}
+		}
+		cell := tview.NewTableCell(header).
 			SetSelectable(false).
 			SetAlign(columnConfig.Alignment).
 			SetTextColor(generalColors.Title.Color()).           // Header text in title color
@@ -140,6 +148,16 @@ func (a *App) getResponsiveFlatConfig(breakpoint ResponsiveBreakpoint, available
 		config = append(config, numbersColumn)
 	}
 
+	// Always include selection indicator column - fixed width (█ when selected, blank when not)
+	selColumn := render.ColumnConfig{
+		Header:    "Sel",
+		Alignment: tview.AlignCenter,
+		Expansion: 0,
+		MaxWidth:  1,
+		MinWidth:  1,
+	}
+	config = append(config, selColumn)
+
 	// Always include flags column (highest priority) - fixed width
 	flagsColumn := render.ColumnConfig{
 		Header:    "",
@@ -150,17 +168,17 @@ func (a *App) getResponsiveFlatConfig(breakpoint ResponsiveBreakpoint, available
 	}
 	config = append(config, flagsColumn)
 
-	// Calculate remaining width after fixed columns (numbers + flags)
-	usedWidth := numbersWidth + flagsFixedWidth + 2 // +2 for separators
+	// Calculate remaining width after fixed columns (numbers + sel + flags)
+	usedWidth := numbersWidth + 1 + flagsFixedWidth // +1 for sel, no separators
 	remainingWidth := availableWidth - usedWidth
 
 	// Responsive column inclusion based on breakpoint and available space
 	switch breakpoint {
 	case BreakpointVeryNarrow:
-		// Minimal: Numbers (if enabled) + Flags + From (truncated) + Subject (truncated)
+		// Minimal: Numbers (if enabled) + Sel + Flags + From (truncated) + Subject (truncated)
 		if remainingWidth >= fromMinWidth+subjectMinWidth {
 			fromWidth := fromMinWidth
-			subjectWidth := remainingWidth - fromWidth - 2 // -2 for separator
+			subjectWidth := remainingWidth - fromWidth - 1 // -1 for gap
 
 			config = append(config, render.ColumnConfig{
 				Header: "From", Alignment: tview.AlignLeft, Expansion: 0,
@@ -173,13 +191,13 @@ func (a *App) getResponsiveFlatConfig(breakpoint ResponsiveBreakpoint, available
 		}
 
 	case BreakpointNarrow:
-		// Show: Numbers + Flags + From + Subject + Labels + Attachment + Calendar + Date (all columns, compact)
+		// Show: all columns compact
 		totalIconsWidth := attachmentFixedWidth + calendarFixedWidth
-		labelsWidth := labelsMinWidth                                                                   // Use minimum labels width for narrow screens
-		if remainingWidth >= fromMinWidth+subjectMinWidth+labelsWidth+totalIconsWidth+dateMinWidth+10 { // +10 for separators
+		labelsWidth := labelsMinWidth
+		if remainingWidth >= fromMinWidth+subjectMinWidth+labelsWidth+totalIconsWidth+dateMinWidth+4 { // +4 for gaps
 			fromWidth := 12
 			dateWidth := dateMinWidth
-			subjectWidth := remainingWidth - fromWidth - labelsWidth - totalIconsWidth - dateWidth - 10
+			subjectWidth := remainingWidth - fromWidth - labelsWidth - totalIconsWidth - dateWidth - 4
 
 			config = append(config, render.ColumnConfig{
 				Header: "From", Alignment: tview.AlignLeft, Expansion: 0,
@@ -208,21 +226,21 @@ func (a *App) getResponsiveFlatConfig(breakpoint ResponsiveBreakpoint, available
 		}
 
 	case BreakpointMedium:
-		// Show: Numbers + Flags + From + Subject + Labels + Attachment + Calendar + Date (comfortable spacing)
+		// Show: all columns comfortable spacing
 		totalIconsWidth := attachmentFixedWidth + calendarFixedWidth
-		labelsWidth := 12                                                                               // Medium labels width for medium screens
-		if remainingWidth >= fromMinWidth+subjectMinWidth+labelsWidth+totalIconsWidth+dateMinWidth+10 { // +10 for separators
+		labelsWidth := 12
+		if remainingWidth >= fromMinWidth+subjectMinWidth+labelsWidth+totalIconsWidth+dateMinWidth+4 { // +4 for gaps
 			fromWidth := 15
 			dateWidth := 12
-			subjectWidth := remainingWidth - fromWidth - labelsWidth - totalIconsWidth - dateWidth - 10
+			subjectWidth := remainingWidth - fromWidth - labelsWidth - totalIconsWidth - dateWidth - 4
 
 			// Ensure Subject has minimum width and adjust From if necessary
 			if subjectWidth < subjectMinWidth {
-				fromWidth = remainingWidth - subjectMinWidth - labelsWidth - totalIconsWidth - dateWidth - 10
+				fromWidth = remainingWidth - subjectMinWidth - labelsWidth - totalIconsWidth - dateWidth - 4
 				if fromWidth < fromMinWidth {
 					fromWidth = fromMinWidth
 				}
-				subjectWidth = remainingWidth - fromWidth - labelsWidth - totalIconsWidth - dateWidth - 10
+				subjectWidth = remainingWidth - fromWidth - labelsWidth - totalIconsWidth - dateWidth - 4
 			}
 
 			config = append(config, render.ColumnConfig{
@@ -252,22 +270,22 @@ func (a *App) getResponsiveFlatConfig(breakpoint ResponsiveBreakpoint, available
 		}
 
 	case BreakpointWide:
-		// Show: Numbers + Flags + From + Subject + Labels + Attachment + Calendar + Date (generous spacing)
+		// Show: all columns generous spacing
 		totalIconsWidth := attachmentFixedWidth + calendarFixedWidth
-		labelsWidthWide := labelsMaxWidth // Use maximum labels width for wide screens
+		labelsWidthWide := labelsMaxWidth
 		dateWidthWide := 16
 
 		// Calculate available width for flexible columns
-		flexibleWidth := remainingWidth - labelsWidthWide - totalIconsWidth - dateWidthWide - 8 // -8 for separators
+		flexibleWidth := remainingWidth - labelsWidthWide - totalIconsWidth - dateWidthWide - 3 // -3 for gaps
 
 		// Ensure we have minimum space for flexible columns
-		if flexibleWidth >= fromMinWidth+subjectMinWidth+2 { // +2 for separator
+		if flexibleWidth >= fromMinWidth+subjectMinWidth+1 { // +1 for gap
 			// Allocate 25% to From, 75% to Subject, but cap From column to prevent overflow
 			fromWidthWide := min(flexibleWidth/4, 25) // Cap From at 25 characters
 			if fromWidthWide < fromMinWidth {
 				fromWidthWide = fromMinWidth
 			}
-			subjectWidthWide := flexibleWidth - fromWidthWide - 1 // -1 for separator
+			subjectWidthWide := flexibleWidth - fromWidthWide
 
 			config = append(config, render.ColumnConfig{
 				Header: "From", Alignment: tview.AlignLeft, Expansion: 0,
@@ -331,6 +349,16 @@ func (a *App) getResponsiveThreadedConfig(breakpoint ResponsiveBreakpoint, avail
 		config = append(config, numbersColumn)
 	}
 
+	// Always include selection indicator column - fixed width (█ when selected, blank when not)
+	selColumn := render.ColumnConfig{
+		Header:    "Sel",
+		Alignment: tview.AlignCenter,
+		Expansion: 0,
+		MaxWidth:  1,
+		MinWidth:  1,
+	}
+	config = append(config, selColumn)
+
 	// Always include Type column (highest priority) - fixed width
 	typeColumn := render.ColumnConfig{
 		Header:    "T",
@@ -362,16 +390,16 @@ func (a *App) getResponsiveThreadedConfig(breakpoint ResponsiveBreakpoint, avail
 	config = append(config, statusColumn)
 
 	// Calculate remaining width after fixed columns
-	usedWidth := numbersWidth + typeFixedWidth + threadCountFixedWidth + statusFixedWidth + 4 // +4 for separators
+	usedWidth := numbersWidth + 1 + typeFixedWidth + threadCountFixedWidth + statusFixedWidth // +1 for sel, no separators
 	remainingWidth := availableWidth - usedWidth
 
 	// Responsive column inclusion based on breakpoint and available space
 	switch breakpoint {
 	case BreakpointVeryNarrow:
-		// Minimal: Numbers (if enabled) + Type + Count + Status + From (truncated) + Subject (truncated)
-		if remainingWidth >= fromMinWidth+subjectMinWidth+2 { // +2 for separator
+		// Minimal: Numbers (if enabled) + Sel + Type + Count + Status + From (truncated) + Subject (truncated)
+		if remainingWidth >= fromMinWidth+subjectMinWidth {
 			fromWidth := fromMinWidth
-			subjectWidth := remainingWidth - fromWidth - 1 // -1 for separator
+			subjectWidth := remainingWidth - fromWidth
 
 			config = append(config, render.ColumnConfig{
 				Header: "From", Alignment: tview.AlignLeft, Expansion: 0,
@@ -384,12 +412,12 @@ func (a *App) getResponsiveThreadedConfig(breakpoint ResponsiveBreakpoint, avail
 		}
 
 	case BreakpointNarrow:
-		// Show: Numbers + Type + Count + Status + From + Subject + Labels + Date (compact)
-		labelsWidth := labelsMinWidth                                                  // Use minimum labels width for narrow screens
-		if remainingWidth >= fromMinWidth+subjectMinWidth+labelsWidth+dateMinWidth+6 { // +6 for separators
+		// Show: all columns compact
+		labelsWidth := labelsMinWidth
+		if remainingWidth >= fromMinWidth+subjectMinWidth+labelsWidth+dateMinWidth+2 { // +2 for gaps
 			fromWidth := 12
 			dateWidth := dateMinWidth
-			subjectWidth := remainingWidth - fromWidth - labelsWidth - dateWidth - 4 // -4 for separators
+			subjectWidth := remainingWidth - fromWidth - labelsWidth - dateWidth - 2
 
 			config = append(config, render.ColumnConfig{
 				Header: "From", Alignment: tview.AlignLeft, Expansion: 0,
@@ -410,21 +438,21 @@ func (a *App) getResponsiveThreadedConfig(breakpoint ResponsiveBreakpoint, avail
 		}
 
 	case BreakpointMedium:
-		// Show: Numbers + Type + Count + Status + From + Subject + Labels + Icons + Date (comfortable)
+		// Show: all columns comfortable
 		totalIconsWidth := attachmentFixedWidth + calendarFixedWidth
-		labelsWidth := 12                                                                               // Medium labels width for medium screens
-		if remainingWidth >= fromMinWidth+subjectMinWidth+labelsWidth+totalIconsWidth+dateMinWidth+10 { // +10 for separators
+		labelsWidth := 12
+		if remainingWidth >= fromMinWidth+subjectMinWidth+labelsWidth+totalIconsWidth+dateMinWidth+4 { // +4 for gaps
 			fromWidth := 15
 			dateWidth := 12
-			subjectWidth := remainingWidth - fromWidth - labelsWidth - totalIconsWidth - dateWidth - 8 // -8 for separators
+			subjectWidth := remainingWidth - fromWidth - labelsWidth - totalIconsWidth - dateWidth - 4
 
 			// Ensure Subject has minimum width and adjust From if necessary
 			if subjectWidth < subjectMinWidth {
-				fromWidth = remainingWidth - subjectMinWidth - labelsWidth - totalIconsWidth - dateWidth - 8
+				fromWidth = remainingWidth - subjectMinWidth - labelsWidth - totalIconsWidth - dateWidth - 4
 				if fromWidth < fromMinWidth {
 					fromWidth = fromMinWidth
 				}
-				subjectWidth = remainingWidth - fromWidth - labelsWidth - totalIconsWidth - dateWidth - 8
+				subjectWidth = remainingWidth - fromWidth - labelsWidth - totalIconsWidth - dateWidth - 4
 			}
 
 			config = append(config, render.ColumnConfig{
@@ -454,22 +482,22 @@ func (a *App) getResponsiveThreadedConfig(breakpoint ResponsiveBreakpoint, avail
 		}
 
 	case BreakpointWide:
-		// Show: Numbers + Type + Count + Status + From + Subject + Labels + Attachment + Calendar + Date (generous)
+		// Show: all columns generous
 		totalIconsWidth := attachmentFixedWidth + calendarFixedWidth
-		labelsWidthWide := labelsMaxWidth // Use maximum labels width for wide screens
+		labelsWidthWide := labelsMaxWidth
 		dateWidthWide := 16
 
 		// Calculate available width for flexible columns
-		flexibleWidth := remainingWidth - labelsWidthWide - totalIconsWidth - dateWidthWide - 8 // -8 for separators
+		flexibleWidth := remainingWidth - labelsWidthWide - totalIconsWidth - dateWidthWide - 3 // -3 for gaps
 
 		// Ensure we have minimum space for flexible columns
-		if flexibleWidth >= fromMinWidth+subjectMinWidth+2 { // +2 for separator
+		if flexibleWidth >= fromMinWidth+subjectMinWidth+1 { // +1 for gap
 			// Allocate 25% to From, 75% to Subject, but cap From column to prevent overflow
 			fromWidthWide := min(flexibleWidth/4, 25) // Cap From at 25 characters
 			if fromWidthWide < fromMinWidth {
 				fromWidthWide = fromMinWidth
 			}
-			subjectWidthWide := flexibleWidth - fromWidthWide - 1 // -1 for separator
+			subjectWidthWide := flexibleWidth - fromWidthWide
 
 			config = append(config, render.ColumnConfig{
 				Header: "From", Alignment: tview.AlignLeft, Expansion: 0,
@@ -544,6 +572,18 @@ func (a *App) mapEmailDataToResponsiveColumns(emailData render.EmailColumnData, 
 		configHeader := config[configIndex].Header
 
 		switch configHeader {
+		case "Sel":
+			// Selection indicator column: █ when selected, blank when not
+			selContent := " "
+			if a.bulk.isMode() && a.bulk.isSelected(a.ids[rowIndex]) {
+				selContent = "█"
+			}
+			mappedColumns[configIndex] = render.ColumnCell{
+				Content:   selContent,
+				Alignment: tview.AlignCenter,
+				MaxWidth:  1,
+				Expansion: 0,
+			}
 		case "": // Either flags, attachment, or calendar column
 			if config[configIndex].Alignment == tview.AlignCenter {
 				if !flagsColumnSeen {
@@ -691,21 +731,27 @@ func (a *App) populateThreadedTableRow(table *tview.Table, row int, data render.
 	}
 }
 
-// applyBulkModeStyle applies bulk selection styling to the table if in bulk mode
+// applyBulkModeStyle applies bulk selection styling to the table if in bulk mode.
+// The focused row is handled by SetSelectedStyle (via updateTableSelectedStyle),
+// so we only need to color non-focused selected rows here.
 func (a *App) applyBulkModeStyle(table *tview.Table) {
 	if !a.bulk.isMode() {
 		return
 	}
 
-	// Apply bulk selection styling to selected rows
+	curRow, _ := table.GetSelection()
+
+	// Apply bulk selection styling to selected rows (non-focused only)
+	bulkBgColor := a.getBulkSelectionColor()
+	bulkFgColor := a.getBulkSelectionTextColor()
 	for row := 1; row < table.GetRowCount(); row++ { // Skip header row
 		messageID := a.getRowMessageID(row - 1) // Adjust for header
-		if a.bulk.isSelected(messageID) {
+		if a.bulk.isSelected(messageID) && curRow != row {
 			// Apply bulk selection style to entire row
 			for col := 0; col < table.GetColumnCount(); col++ {
 				if cell := table.GetCell(row, col); cell != nil {
-					cell.SetBackgroundColor(a.getBulkSelectionColor())
-					cell.SetTextColor(a.getBulkSelectionTextColor())
+					cell.SetBackgroundColor(bulkBgColor)
+					cell.SetTextColor(bulkFgColor)
 				}
 			}
 		}
@@ -780,6 +826,31 @@ func (a *App) getBulkSelectionTextColor() tcell.Color {
 	return fgColor.Color()
 }
 
+// getBulkFocusedSelectionColor returns the background color for rows that are both bulk-selected and focused
+func (a *App) getBulkFocusedSelectionColor() tcell.Color {
+	if a.currentTheme == nil {
+		return a.GetComponentColors("general").Accent.Color()
+	}
+	bgColor, _ := a.currentTheme.GetBulkFocusedSelectionColors()
+	if bgColor == "" {
+		// Fallback to regular bulk color
+		return a.getBulkSelectionColor()
+	}
+	return bgColor.Color()
+}
+
+// getBulkFocusedSelectionTextColor returns the text color for rows that are both bulk-selected and focused
+func (a *App) getBulkFocusedSelectionTextColor() tcell.Color {
+	if a.currentTheme == nil {
+		return a.GetComponentColors("general").Background.Color()
+	}
+	_, fgColor := a.currentTheme.GetBulkFocusedSelectionColors()
+	if fgColor == "" {
+		return a.getBulkSelectionTextColor()
+	}
+	return fgColor.Color()
+}
+
 // refreshTableDisplay refreshes the entire table display based on current mode and data
 func (a *App) refreshTableDisplay() {
 	table, ok := a.views["list"].(*tview.Table)
@@ -837,26 +908,19 @@ func (a *App) populateFlatRows(table *tview.Table) {
 
 		// Apply bulk mode styling if this message is selected
 		if a.bulk.isMode() && a.bulk.isSelected(a.ids[i]) {
-			// Apply bulk selection styling
-			cur, _ := table.GetSelection()
-			if cur == i+1 { // +1 for header
-				// Keep normal colors for focused selection
-				// No color change needed for focused selection
-			} else {
-				// Use bulk selection background
-				columnData.Color = a.currentTheme.Body.BgColor.Color()
-			}
+			columnData.Color = a.currentTheme.Body.BgColor.Color()
 		}
 
 		a.populateTableRow(table, i+1, columnData) // +1 for header row
 
-		// Apply bulk mode background styling if needed
+		// Apply bulk mode background styling for non-focused selected rows.
+		// Focused row is handled by SetSelectedStyle via updateTableSelectedStyle.
 		if a.bulk.isMode() && a.bulk.isSelected(a.ids[i]) {
 			cur, _ := table.GetSelection()
-			if cur != i+1 { // Not currently focused
+			if cur != i+1 { // Not focused
 				for col := 0; col < table.GetColumnCount(); col++ {
 					if cell := table.GetCell(i+1, col); cell != nil {
-						cell.SetBackgroundColor(a.GetComponentColors("general").Accent.Color())
+						cell.SetBackgroundColor(a.getBulkSelectionColor())
 					}
 				}
 			}
@@ -864,29 +928,10 @@ func (a *App) populateFlatRows(table *tview.Table) {
 	}
 }
 
-// buildEnhancedFlags builds the flags column content with bulk checkboxes and original status indicators
-// Note: Numbers are now handled in a separate dedicated column, so this function no longer includes them
+// buildEnhancedFlags returns the original status flags (●/○/!).
+// Selection indication is now handled by a dedicated Sel column.
 func (a *App) buildEnhancedFlags(msg *gmailapi.Message, index int, originalFlags string) string {
-	var flags strings.Builder
-
-	// Add bulk mode checkbox, but preserve original status flags
-	if a.bulk.isMode() {
-		if a.bulk.isSelected(a.ids[index]) {
-			flags.WriteString("☑")
-		} else {
-			flags.WriteString("☐")
-		}
-		// Add a space, then preserve original status flags (●/○/!)
-		if originalFlags != "" {
-			flags.WriteString(" ")
-			flags.WriteString(originalFlags)
-		}
-	} else {
-		// When not in bulk mode, just use the original status flags
-		flags.WriteString(originalFlags)
-	}
-
-	return flags.String()
+	return originalFlags
 }
 
 // FormatThreadHeaderColumns formats a thread header for column display
