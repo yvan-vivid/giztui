@@ -2117,6 +2117,36 @@ func (a *App) applyLocalFilter(expr string) {
 }
 
 // showMessage displays a message in the text view
+// writeReaderContent renders a message body into the reader TextView under readerMu. Message
+// renders run in background goroutines and some write a placeholder directly (off the event
+// loop); serializing every reader write prevents a concurrent write from clearing the tview
+// buffer mid-render, which panics ("index out of range" in TextView.Write). Callers own thread
+// placement; this only makes the write itself atomic.
+func (a *App) writeReaderContent(rendered string, isANSI bool) {
+	a.readerMu.Lock()
+	defer a.readerMu.Unlock()
+	if text, ok := a.views["text"].(*tview.TextView); ok {
+		text.SetDynamicColors(true)
+		text.Clear()
+		if isANSI {
+			_, _ = fmt.Fprint(tview.ANSIWriter(text, "", ""), rendered)
+		} else {
+			a.enhancedTextView.SetContent(rendered)
+		}
+		text.ScrollToBeginning()
+	}
+}
+
+// writeReaderPlaceholder writes a short placeholder into the reader TextView under readerMu,
+// so a background "Loading…" write can't race the in-progress render (see writeReaderContent).
+func (a *App) writeReaderPlaceholder(s string) {
+	a.readerMu.Lock()
+	defer a.readerMu.Unlock()
+	if a.enhancedTextView != nil {
+		a.enhancedTextView.SetContent(s)
+	}
+}
+
 func (a *App) showMessage(id string) {
 	// Restore text container title when viewing messages (but not when in help mode)
 	if !a.showHelp {
@@ -2136,7 +2166,7 @@ func (a *App) showMessage(id string) {
 		} else {
 			a.setStatusPersistent("🧾 Loading message…")
 		}
-		a.enhancedTextView.SetContent("Loading message…")
+		a.writeReaderPlaceholder("Loading message…")
 		text.ScrollToBeginning()
 	}
 
@@ -2194,18 +2224,7 @@ func (a *App) showMessage(id string) {
 				}
 				return
 			}
-			if text, ok := a.views["text"].(*tview.TextView); ok {
-				text.SetDynamicColors(true)
-				text.Clear()
-				if isANSI {
-					// Convert ANSI → tview markup while writing
-					_, _ = fmt.Fprint(tview.ANSIWriter(text, "", ""), rendered)
-				} else {
-					a.enhancedTextView.SetContent(rendered)
-				}
-				// Scroll to the top of the text
-				text.ScrollToBeginning()
-			}
+			a.writeReaderContent(rendered, isANSI)
 			// If invite detected, show hint in status bar
 			if _, ok := a.caches.inviteGet(id); ok {
 				a.showStatusMessage("📅 Calendar invite detected — press V to RSVP")
@@ -2362,7 +2381,7 @@ func (a *App) showMessageWithoutFocus(id string) {
 		if a.debug {
 			a.logger.Printf("showMessageWithoutFocus: id=%s", id)
 		}
-		a.enhancedTextView.SetContent("Loading message...")
+		a.writeReaderPlaceholder("Loading message...")
 		text.ScrollToBeginning()
 	}
 	// Do NOT set currentMessageID here; selection changes (and Enter) manage it.
@@ -2446,16 +2465,7 @@ func (a *App) showMessageWithoutFocus(id string) {
 				}
 				return
 			}
-			if text, ok := a.views["text"].(*tview.TextView); ok {
-				text.SetDynamicColors(true)
-				text.Clear()
-				if isANSI {
-					_, _ = fmt.Fprint(tview.ANSIWriter(text, "", ""), rendered)
-				} else {
-					a.enhancedTextView.SetContent(rendered)
-				}
-				text.ScrollToBeginning()
-			}
+			a.writeReaderContent(rendered, isANSI)
 			// If invite detected in preview, show the same hint
 			if _, ok := a.caches.inviteGet(id); ok {
 				a.showStatusMessage("📅 Calendar invite detected — press V to RSVP")
@@ -2495,16 +2505,7 @@ func (a *App) refreshMessageContent(id string) {
 		a.QueueUpdateDraw(func() {
 			// Don't update content when in help mode to preserve help content
 			if !a.showHelp {
-				if text, ok := a.views["text"].(*tview.TextView); ok {
-					text.SetDynamicColors(true)
-					text.Clear()
-					if isANSI {
-						_, _ = fmt.Fprint(tview.ANSIWriter(text, "", ""), rendered)
-					} else {
-						a.enhancedTextView.SetContent(rendered)
-					}
-					text.ScrollToBeginning()
-				}
+				a.writeReaderContent(rendered, isANSI)
 			}
 		})
 	}()

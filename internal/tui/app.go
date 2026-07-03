@@ -177,6 +177,12 @@ type App struct {
 	currentTheme            *config.ColorsConfig // Current theme cache for helper functions
 	errorHandler            *ErrorHandler
 
+	// Serializes writes to the reader TextView. Message renders build content in a
+	// background goroutine and some write a placeholder directly (off the event loop);
+	// without this, a background write can clear the tview buffer mid-render and panic
+	// ("index out of range" in TextView.Write). Every reader write takes this lock.
+	readerMu sync.Mutex
+
 	// Auto-refresh ticker lifecycle + pending-new-mail counter (opt-in inbox polling)
 	autoRefreshMu      sync.Mutex
 	autoRefreshStop    chan struct{}
