@@ -4,7 +4,7 @@
 
 **Goal:** Rework the Inbox Action Plan into a selection-scoped, expandable, per-email-controllable panel with a lightweight LLM-interpreted learning layer.
 
-**Architecture:** Service-first per CLAUDE.md. New `analyzer_rules` SQLite table (migration v8) → `AnalyzerRulesStore` (db) → `AnalyzerRulesService` (business logic, account-scoped, pure rule-suggestion helper) → accessed via a dedicated `GetAnalyzerRulesService()` getter (mirroring `GetInboxAnalyzerService()`, NOT the `GetServices()` tuple). The analyzer gains a `UserRules []string` option whose texts are prepended to the prompt. The TUI replaces the scroll-only `TextView` with a `tview.TreeView` (categories → emails), which gives native focus/selection (fixing the focus bug) and a home for per-email exclusion + `Ctrl+R` rule capture.
+**Architecture:** Service-first per AGENTS.md. New `analyzer_rules` SQLite table (migration v8) → `AnalyzerRulesStore` (db) → `AnalyzerRulesService` (business logic, account-scoped, pure rule-suggestion helper) → accessed via a dedicated `GetAnalyzerRulesService()` getter (mirroring `GetInboxAnalyzerService()`, NOT the `GetServices()` tuple). The analyzer gains a `UserRules []string` option whose texts are prepended to the prompt. The TUI replaces the scroll-only `TextView` with a `tview.TreeView` (categories → emails), which gives native focus/selection (fixing the focus bug) and a home for per-email exclusion + `Ctrl+R` rule capture.
 
 **Tech Stack:** Go, `github.com/derailed/tview`, `github.com/derailed/tcell/v2`, SQLite (`internal/db`), existing `InboxAnalyzerService` + `EmailService`/`LabelService`.
 
@@ -1570,4 +1570,4 @@ Update `action-plan-feedback.md` (mark threads A–D addressed) and `.remember/r
 - **Deviation from spec (intentional):** uses a dedicated `GetAnalyzerRulesService()` getter instead of extending the `GetServices()` 12-tuple — matches the existing `GetInboxAnalyzerService()` pattern and avoids a repo-wide arity change.
 - **Type consistency:** `emailRef{catIndex,msgID}`, `checkedIDs(ids,excluded)`, `actionPlanFooterText(onCategory,key,action,count)`, `prependUserRules`, `SuggestRuleFromContext(from,action,negate)`, `AnalyzerRuleInfo`, `AnalyzerRule` used consistently across tasks.
 - **Risk:** tview `TreeView` re-render-on-toggle must preserve selection (Task 8 Step 4 tracks `selectedMsgID`/`selectedCategory`). Verify in E2E.
-- **Threading:** all batch renders stay in the existing `QueueUpdateDraw` in the analysis goroutine; ESC/close stays synchronous; rule saves/deletes run in goroutines with ErrorHandler feedback (CLAUDE.md compliant).
+- **Threading:** all batch renders stay in the existing `QueueUpdateDraw` in the analysis goroutine; ESC/close stays synchronous; rule saves/deletes run in goroutines with ErrorHandler feedback (AGENTS.md compliant).

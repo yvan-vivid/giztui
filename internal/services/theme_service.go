@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/ajramos/giztui/internal/config"
+	"github.com/ajramos/giztui/internal/environment"
 )
 
 // ThemeUpdateCallback represents a function that gets called when theme changes
@@ -297,11 +298,7 @@ func (s *ThemeServiceImpl) loadThemeByName(name string) (*config.ColorsConfig, e
 
 // getUserConfigThemesDir returns the user configuration themes directory
 func (s *ThemeServiceImpl) getUserConfigThemesDir() (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(home, ".config", "giztui", "themes"), nil
+	return environment.ThemesDir(), nil
 }
 
 // getThemeDescription returns a description for known themes

@@ -40,7 +40,7 @@ Your validation process:
 7. **Provide Remediation**: Offer specific, actionable fixes with code examples
 
 When reviewing code, you will:
-- Reference specific sections from CLAUDE.md guidelines
+- Reference specific sections from AGENTS.md guidelines
 - Provide concrete examples of compliant vs non-compliant patterns
 - Prioritize critical violations that could cause deadlocks or system instability
 - Suggest refactoring approaches that maintain functionality while improving compliance

@@ -16,7 +16,7 @@ When analyzing code for testing, you will:
    - State management and side effects
    - Integration points with external systems
 
-2. **Follow Project Testing Patterns**: Based on the CLAUDE.md context, ensure tests:
+2. **Follow Project Testing Patterns**: Based on the AGENTS.md context, ensure tests:
    - Follow the service-first architecture (test services separately from UI)
    - Use proper mocking for dependencies (Gmail API, LLM calls, etc.)
    - Test thread-safe accessor methods rather than direct field access

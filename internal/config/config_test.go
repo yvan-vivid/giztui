@@ -240,13 +240,13 @@ func TestDefaultConfigPath(t *testing.T) {
 func TestDefaultCredentialPaths(t *testing.T) {
 	credPath, tokenPath := DefaultCredentialPaths()
 
-	// Both should be empty or both should be valid
-	if credPath != "" && tokenPath != "" {
-		assert.Contains(t, credPath, ".config")
+	// Credentials in XDG_DATA_HOME
+	if credPath != "" {
 		assert.Contains(t, credPath, "giztui")
 		assert.Contains(t, credPath, "credentials.json")
-
-		assert.Contains(t, tokenPath, ".config")
+	}
+	// Token in XDG_STATE_HOME
+	if tokenPath != "" {
 		assert.Contains(t, tokenPath, "giztui")
 		assert.Contains(t, tokenPath, "token.json")
 	}
@@ -256,9 +256,8 @@ func TestDefaultCacheDir(t *testing.T) {
 	path := DefaultCacheDir()
 
 	if path != "" {
-		assert.Contains(t, path, ".config")
+		assert.Contains(t, path, ".cache")
 		assert.Contains(t, path, "giztui")
-		assert.Contains(t, path, "cache")
 	}
 }
 
@@ -266,7 +265,7 @@ func TestDefaultSavedDir(t *testing.T) {
 	path := DefaultSavedDir()
 
 	if path != "" {
-		assert.Contains(t, path, ".config")
+		assert.Contains(t, path, "state")
 		assert.Contains(t, path, "giztui")
 		assert.Contains(t, path, "saved")
 	}
@@ -276,7 +275,7 @@ func TestDefaultLogDir(t *testing.T) {
 	path := DefaultLogDir()
 
 	if path != "" {
-		assert.Contains(t, path, ".config")
+		assert.Contains(t, path, ".cache")
 		assert.Contains(t, path, "giztui")
 	}
 }

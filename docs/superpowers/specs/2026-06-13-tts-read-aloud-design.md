@@ -24,7 +24,7 @@ installed) with clear setup docs and a helpful message when unconfigured.
   instead of failing. No bundling, no PATH autodetection.
 - **Trigger:** a context-aware key (`keys.speak`, unbound by default) reads the focused panel;
   pressing it while speaking stops.
-- **Docs are a first-class deliverable** (`docs/TTS.md`) — per the CLAUDE.md Definition of Done.
+- **Docs are a first-class deliverable** (`docs/TTS.md`) — per the AGENTS.md Definition of Done.
 
 ## Architecture
 

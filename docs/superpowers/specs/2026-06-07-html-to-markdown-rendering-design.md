@@ -90,7 +90,7 @@ These were the open questions during the spike; all are now answered in
 **Approved Design — Direction B** below.
 
 - Toggle vs. default renderer; how to coexist with / rename the repurposed `M` key.
-- Config keys (per CLAUDE.md conventions), command parity (`:command` for any shortcut).
+- Config keys (per AGENTS.md conventions), command parity (`:command` for any shortcut).
 - Conversion latency & caching of converted output.
 - Graceful fallback when conversion fails or email is plain-text only.
 - Service-first placement (business logic in `internal/services/`).
@@ -199,7 +199,7 @@ already lives in `internal/render/`):
 ### UX & command parity
 - `M` → toggle Markdown ↔ raw (per message). ErrorHandler status: "📄 Markdown
   view" / "📃 Raw view" (async, never inside `QueueUpdateDraw`).
-- `:markdown` / `:md` command toggles (CLAUDE.md command-parity mandate); add to
+- `:markdown` / `:md` command toggles (AGENTS.md command-parity mandate); add to
   `executeCommand()` and `generateCommandSuggestion()`.
 - `:touch-up` command takes over the old LLM-touch-up toggle.
 

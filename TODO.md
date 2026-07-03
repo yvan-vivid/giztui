@@ -190,7 +190,7 @@ For the active roadmap, use the issues view with the `priority:*` and `area:*` l
 - [x] **Version management** - `VERSION` + `internal/version/version.go` + `CHANGELOG.md` in sync via release procedure
 - [x] **Installation guide** - `docs/GETTING_STARTED.md`
 - [x] **User manual** - `docs/FEATURES.md` + `docs/KEYBOARD_SHORTCUTS.md`
-- [x] **Developer guide** - `docs/ARCHITECTURE.md` + `CLAUDE.md`
+- [x] **Developer guide** - `docs/ARCHITECTURE.md` + `AGENTS.md`
 - [x] **CI pipeline implementation** - `Comprehensive CI/CD Pipeline` workflow active
 
 ### Bug Fixes
@@ -220,7 +220,7 @@ For the active roadmap, use the issues view with the `priority:*` and `area:*` l
 - [x] **Theme documentation** - Document theme format and options
 
 ### Session 2026-06-03 / 2026-06-05 — release v1.2.4 + CI rescue + backlog migration
-- [x] **CLAUDE.md refresh** - fixed stale `GetServices()` example (12 return values, not 5), added `make pre-commit-check` guidance, project layout section, scoped `make test` note (commit `6a97aa1`)
+- [x] **AGENTS.md refresh** - fixed stale `GetServices()` example (12 return values, not 5), added `make pre-commit-check` guidance, project layout section, scoped `make test` note (commit `6a97aa1`)
 - [x] **Release v1.2.4 published** - GitHub Actions workflow produced 6 platform binaries + checksums; tagged and live at https://github.com/ajramos/giztui/releases/tag/v1.2.4
 - [x] **Lint debt cleanup** - `make pre-commit-check` now passes with 0 issues. Annotated 9 gosec findings with justified `// #nosec` markers (G304 on validated DB paths, G204 on hardcoded per-OS open binaries, G117 on intentional OAuth token persistence, G101 on test fixture paths) and refactored 13+ `WriteString(fmt.Sprintf(...))` call-sites to `fmt.Fprintf(&builder, ...)` (commits `df8db83`, `873c35a`)
 - [x] **GitHub Actions modernised to Node.js 24** - bumped checkout/setup-go/cache/upload-artifact/dependency-review/github-script/codecov/codeql/gh-release to current major versions; pinned `aquasecurity/trivy-action` from `@master` to `@v0.36.0` (commit `07fde36`)

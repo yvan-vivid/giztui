@@ -133,7 +133,7 @@ widget change (a standalone focus patch would be thrown away by the redesign).
 
 ## Architecture
 
-Service-first, per CLAUDE.md. All persistence and rule logic lives in `internal/db` +
+Service-first, per AGENTS.md. All persistence and rule logic lives in `internal/db` +
 `internal/services`; the TUI only captures gestures and renders.
 
 ### New: rules persistence (`internal/db/analyzer_rules_store.go`)
@@ -219,7 +219,7 @@ P / :action-plan
   instead of failing. (Mirrors the known legacy account DB-init gap.)
 - Rule save/delete failures → `ShowError`, no panel disruption.
 - All user feedback via `GetErrorHandler()`; no direct output. Streaming/ESC threading rules
-  from CLAUDE.md preserved (no `QueueUpdateDraw` in ESC/cleanup; batch renders stay on the UI
+  from AGENTS.md preserved (no `QueueUpdateDraw` in ESC/cleanup; batch renders stay on the UI
   thread via the existing `QueueUpdateDraw` in the analysis goroutine).
 
 ## Testing

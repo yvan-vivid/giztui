@@ -386,7 +386,7 @@ Expected: `Built build/giztui ...`.
 
 - [ ] **Step 5: Finish the branch**
 
-Use the superpowers:finishing-a-development-branch skill. Manual command-bar smoke test on the user's Mac before merge: `:` opens the bar; typing shows the live hint; Tab completes; Up/Down walk command history (and Down past the newest clears the line); Enter executes and the command is remembered (no empties/consecutive dups; old ones drop after 100); Esc closes; `:plan rules` and content-search still restore focus correctly. Do NOT push/merge without explicit user confirmation (project rule: "commit" ≠ "publish"). Do NOT add a `Co-Authored-By` line to any commit (project CLAUDE.md forbids it).
+Use the superpowers:finishing-a-development-branch skill. Manual command-bar smoke test on the user's Mac before merge: `:` opens the bar; typing shows the live hint; Tab completes; Up/Down walk command history (and Down past the newest clears the line); Enter executes and the command is remembered (no empties/consecutive dups; old ones drop after 100); Esc closes; `:plan rules` and content-search still restore focus correctly. Do NOT push/merge without explicit user confirmation (project rule: "commit" ≠ "publish"). Do NOT add a `Co-Authored-By` line to any commit (project AGENTS.md forbids it).
 
 ---
 

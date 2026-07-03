@@ -207,7 +207,7 @@ func (a *App) openPromptConfigurator(pctx promptConfiguratorContext) {
 }
 
 // closePromptConfigurator closes the configurator and restores the original view.
-// Synchronous cleanup — NEVER use QueueUpdateDraw in close paths (CLAUDE.md rule).
+	// Synchronous cleanup — NEVER use QueueUpdateDraw in close paths (AGENTS.md rule).
 func (a *App) closePromptConfigurator() {
 	if a.promptConfiguratorState != nil && a.promptConfiguratorState.streamingCancel != nil {
 		a.promptConfiguratorState.streamingCancel()
@@ -274,7 +274,7 @@ func (a *App) generateConfiguratorPrompt(intent string) {
 		default:
 		}
 		accumulator += token
-		// Direct UI update — CLAUDE.md prohibits QueueUpdateDraw inside streaming callbacks.
+		// Direct UI update — AGENTS.md prohibits QueueUpdateDraw inside streaming callbacks.
 		// I1: use captured `state` (not a.promptConfiguratorState) to avoid writing
 		// into a different panel instance if the user closed/reopened mid-stream.
 		if ctx.Err() == nil && state.promptArea != nil {
@@ -359,7 +359,7 @@ func (a *App) refineConfiguratorPrompt(currentPrompt string, refinement string) 
 		default:
 		}
 		accumulator += token
-		// Direct UI update — CLAUDE.md prohibits QueueUpdateDraw inside streaming callbacks.
+		// Direct UI update — AGENTS.md prohibits QueueUpdateDraw inside streaming callbacks.
 		// I1: use captured `state` (not a.promptConfiguratorState) to avoid writing
 		// into a different panel instance if the user closed/reopened mid-stream.
 		if ctx.Err() == nil && state.promptArea != nil {

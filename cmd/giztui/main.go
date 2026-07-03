@@ -11,6 +11,7 @@ import (
 
 	"github.com/ajramos/giztui/internal/calendar"
 	"github.com/ajramos/giztui/internal/config"
+	"github.com/ajramos/giztui/internal/environment"
 	"github.com/ajramos/giztui/internal/gmail"
 	"github.com/ajramos/giztui/internal/llm"
 	"github.com/ajramos/giztui/internal/services"
@@ -21,8 +22,6 @@ import (
 
 func main() {
 	// Essential command line flags only (GNU-style double dashes)
-	configPathFlag := flag.String("config", "", "Path to JSON configuration file (default: ~/.config/giztui/config.json)")
-	credPathFlag := flag.String("credentials", "", "Path to OAuth client credentials JSON (default: ~/.config/giztui/credentials.json)")
 	setupFlag := flag.Bool("setup", false, "Run interactive setup wizard")
 	versionFlag := flag.Bool("version", false, "Show version information and exit")
 	migrateConfigFlag := flag.Bool("migrate-config", false, "Add missing default options to the config file and exit")
@@ -35,18 +34,16 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Examples:\n")
 		fmt.Fprintf(os.Stderr, "  %s                        # Run with default configuration\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "  %s --setup                # Run interactive setup wizard\n", os.Args[0])
-		fmt.Fprintf(os.Stderr, "  %s --version              # Show version information\n", os.Args[0])
-		fmt.Fprintf(os.Stderr, "  %s --config custom.json   # Use custom configuration\n\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "  %s --version              # Show version information\n\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "Options:\n")
-		fmt.Fprintf(os.Stderr, "  --config string\n        %s\n", "Path to JSON configuration file (default: ~/.config/giztui/config.json)")
-		fmt.Fprintf(os.Stderr, "  --credentials string\n        %s\n", "Path to OAuth client credentials JSON (default: ~/.config/giztui/credentials.json)")
 		fmt.Fprintf(os.Stderr, "  --setup\n        %s\n", "Run interactive setup wizard")
 		fmt.Fprintf(os.Stderr, "  --version\n        %s\n", "Show version information and exit")
 		fmt.Fprintf(os.Stderr, "  --migrate-config\n        %s\n\n", "Add missing default options to the config file and exit")
-		fmt.Fprintf(os.Stderr, "Environment Variables:\n")
-		fmt.Fprintf(os.Stderr, "  GMAIL_TUI_CONFIG      Override default config file path\n")
-		fmt.Fprintf(os.Stderr, "  GMAIL_TUI_CREDENTIALS Override default credentials file path\n")
-		fmt.Fprintf(os.Stderr, "  GMAIL_TUI_TOKEN       Override default token file path\n\n")
+		fmt.Fprintf(os.Stderr, "Paths follow the XDG Base Directory Specification:\n")
+		fmt.Fprintf(os.Stderr, "  Config:    %s\n", environment.ConfigDir())
+		fmt.Fprintf(os.Stderr, "  Data:      %s\n", environment.DataDir())
+		fmt.Fprintf(os.Stderr, "  State:     %s\n", environment.StateDir())
+		fmt.Fprintf(os.Stderr, "  Cache:     %s\n\n", environment.CacheDir())
 		fmt.Fprintf(os.Stderr, "For all other settings (LLM, timeouts, etc.), edit the config file.\n")
 	}
 
@@ -65,7 +62,7 @@ func main() {
 	}
 
 	// Load configuration with smart defaults and environment variable support
-	configPath := getConfigPath(*configPathFlag)
+	configPath := environment.ConfigPath()
 
 	// Handle config migration (add missing default keys to the config file, then exit)
 	if *migrateConfigFlag {
@@ -173,8 +170,8 @@ func main() {
 					logger.Printf("✅ Using account for startup: %s (%s) - Email: %s", account.ID, account.DisplayName, result.Email)
 					selectedAccount = account
 					selectedAccount.Email = result.Email // Update account with validated email
-					credPath = expandPath(account.CredPath)
-					tokenPath = expandPath(account.TokenPath)
+					credPath = environment.ExpandPath(account.CredPath)
+					tokenPath = environment.ExpandPath(account.TokenPath)
 					break
 				} else {
 					logger.Printf("❌ Account validation failed for %s: %s", account.ID, result.ErrorMsg)
@@ -204,71 +201,18 @@ func main() {
 		var fallbackMethod string
 		var attemptNumber = 1
 
-		// Level 1: Try CLI flag credentials (highest priority)
-		if *credPathFlag != "" {
-			if logger != nil {
-				logger.Printf("🎯 Attempt %d: Trying CLI flag credentials: %s", attemptNumber, *credPathFlag)
-			}
-			attemptNumber++
-
-			testCredPath := *credPathFlag
-			testTokenPath := getTokenPath("", cfg.Token)
-
-			if logger != nil {
-				logger.Printf("📍 Resolved paths - creds: %s, token: %s", testCredPath, testTokenPath)
-			}
-
-			if testCredPath != "" {
-				if _, err := os.Stat(testCredPath); err == nil {
-					credPath = testCredPath
-					tokenPath = testTokenPath
-					fallbackMethod = "CLI flag"
-					if logger != nil {
-						logger.Printf("✅ CLI flag credentials found and validated")
-					}
-				} else {
-					if logger != nil {
-						logger.Printf("❌ CLI flag credentials not found at %s", testCredPath)
-					}
-				}
-			}
-		}
-
-		// Level 1.5: Try the GMAIL_TUI_CREDENTIALS env var. It is advertised in --help and honored
-		// for the token (via getTokenPath), but credential resolution was reimplemented inline and
-		// skipped it — so setting the env var did nothing. Honor it here, matching the documented
-		// CLI → env → config → default priority.
-		if credPath == "" {
-			if envCred := os.Getenv("GMAIL_TUI_CREDENTIALS"); envCred != "" {
-				testCredPath := expandPath(envCred)
-				testTokenPath := getTokenPath("", cfg.Token)
-				if logger != nil {
-					logger.Printf("🎯 Attempt %d: Trying GMAIL_TUI_CREDENTIALS env var: %s", attemptNumber, testCredPath)
-				}
-				attemptNumber++
-				// #nosec G703 -- testCredPath is the operator's own GMAIL_TUI_CREDENTIALS path
-				if _, err := os.Stat(testCredPath); err == nil {
-					credPath = testCredPath
-					tokenPath = testTokenPath
-					fallbackMethod = "env var"
-					if logger != nil {
-						logger.Printf("✅ Env var credentials found and validated")
-					}
-				} else if logger != nil {
-					logger.Printf("❌ Env var credentials not found at %s", testCredPath)
-				}
-			}
-		}
-
-		// Level 2: Try config file credentials (if CLI didn't work and config has credentials)
-		if credPath == "" && cfg.Credentials != "" {
+		// Level 1: Try config file credentials (if config has credentials)
+		if cfg.Credentials != "" {
 			if logger != nil {
 				logger.Printf("🎯 Attempt %d: Trying config file credentials: %s", attemptNumber, cfg.Credentials)
 			}
 			attemptNumber++
 
-			testCredPath := expandPath(cfg.Credentials)
-			testTokenPath := getTokenPath("", cfg.Token)
+			testCredPath := environment.ExpandPath(cfg.Credentials)
+			testTokenPath := environment.ExpandPath(cfg.Token)
+			if testTokenPath == "" {
+				testTokenPath = environment.TokenPath()
+			}
 
 			if logger != nil {
 				logger.Printf("📍 Resolved paths - creds: %s, token: %s", testCredPath, testTokenPath)
@@ -288,35 +232,35 @@ func main() {
 			}
 		}
 
-		// Level 3: Try hardcoded default credentials (final fallback)
+		// Level 2: Try hardcoded default credentials (final fallback)
 		if credPath == "" {
 			if logger != nil {
 				if cfg.Credentials != "" {
-					logger.Printf("🎯 Attempt %d: Config credentials failed, trying hardcoded defaults as final fallback", attemptNumber)
+					logger.Printf("🎯 Attempt %d: Config credentials failed, trying XDG defaults as final fallback", attemptNumber)
 				} else {
-					logger.Printf("🎯 Attempt %d: No config credentials (disabled with prefix), trying hardcoded defaults", attemptNumber)
+					logger.Printf("🎯 Attempt %d: No config credentials (disabled with prefix), trying XDG defaults", attemptNumber)
 				}
 			}
 
-			defaultCredPath, _ := config.DefaultCredentialPaths()
+			defaultCredPath := environment.CredentialsPath()
 			testCredPath := defaultCredPath
-			testTokenPath := getTokenPath("", "")
+			testTokenPath := environment.TokenPath()
 
 			if logger != nil {
-				logger.Printf("📍 Resolved default paths - creds: %s, token: %s", testCredPath, testTokenPath)
+				logger.Printf("📍 Resolved XDG paths - creds: %s, token: %s", testCredPath, testTokenPath)
 			}
 
 			if testCredPath != "" {
 				if _, err := os.Stat(testCredPath); err == nil {
 					credPath = testCredPath
 					tokenPath = testTokenPath
-					fallbackMethod = "hardcoded defaults"
+					fallbackMethod = "XDG defaults"
 					if logger != nil {
-						logger.Printf("✅ Hardcoded default credentials found and validated")
+						logger.Printf("✅ XDG default credentials found and validated")
 					}
 				} else {
 					if logger != nil {
-						logger.Printf("❌ Hardcoded default credentials not found at %s", testCredPath)
+						logger.Printf("❌ XDG default credentials not found at %s", testCredPath)
 					}
 				}
 			}
@@ -326,10 +270,10 @@ func main() {
 		if credPath == "" {
 			if logger != nil {
 				logger.Printf("❌ All credential fallback methods exhausted")
-				logger.Printf("💡 Tried CLI flag, config file, and hardcoded defaults")
+				logger.Printf("💡 Tried config file and XDG defaults")
 				logger.Printf("💡 Please ensure at least one credential file exists and is accessible")
 			}
-			log.Fatal("Gmail credentials file is required. No valid credentials found in CLI flag, config file, or default location.")
+			log.Fatal("Gmail credentials file is required. No valid credentials found in config file or XDG default locations.")
 		}
 
 		// Success - log which method worked
@@ -424,84 +368,6 @@ func main() {
 	}
 }
 
-// getConfigPath returns the configuration file path using the following priority:
-// 1. CLI flag
-// 2. Environment variable GMAIL_TUI_CONFIG
-// 3. Default path ~/.config/giztui/config.json
-func getConfigPath(flagValue string) string {
-	if flagValue != "" {
-		return flagValue
-	}
-
-	if envPath := os.Getenv("GMAIL_TUI_CONFIG"); envPath != "" {
-		return expandPath(envPath)
-	}
-
-	return config.DefaultConfigPath()
-}
-
-// getCredentialsPath returns the credentials file path using the following priority:
-// 1. CLI flag
-// 2. Environment variable GMAIL_TUI_CREDENTIALS
-// 3. Config file setting
-// 4. Default path ~/.config/giztui/credentials.json
-func getCredentialsPath(flagValue, configValue string) string {
-	if flagValue != "" {
-		return flagValue
-	}
-
-	if envPath := os.Getenv("GMAIL_TUI_CREDENTIALS"); envPath != "" {
-		return expandPath(envPath)
-	}
-
-	if configValue != "" {
-		return expandPath(configValue)
-	}
-
-	credPath, _ := config.DefaultCredentialPaths()
-	return credPath
-}
-
-// getTokenPath returns the token file path using the following priority:
-// 1. CLI flag
-// 2. Environment variable GMAIL_TUI_TOKEN
-// 3. Config file setting
-// 4. Default path ~/.config/giztui/token.json
-func getTokenPath(flagValue, configValue string) string {
-	if flagValue != "" {
-		return flagValue
-	}
-
-	if envPath := os.Getenv("GMAIL_TUI_TOKEN"); envPath != "" {
-		return expandPath(envPath)
-	}
-
-	if configValue != "" {
-		return expandPath(configValue)
-	}
-
-	_, tokenPath := config.DefaultCredentialPaths()
-	return tokenPath
-}
-
-// expandPath expands ~ to the user's home directory
-func expandPath(path string) string {
-	if !strings.HasPrefix(path, "~") {
-		return path
-	}
-
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return path
-	}
-
-	if path == "~" {
-		return home
-	}
-
-	return filepath.Join(home, path[2:])
-}
-
 // runSetupWizard runs an interactive setup wizard to help users configure Gmail TUI
 func runSetupWizard() {
 	fmt.Println("📧 Gmail TUI Setup Wizard")
@@ -509,8 +375,9 @@ func runSetupWizard() {
 	fmt.Println()
 
 	// Check if default config already exists
-	defaultConfigPath := config.DefaultConfigPath()
-	credPath, tokenPath := config.DefaultCredentialPaths()
+	defaultConfigPath := environment.ConfigPath()
+	credPath := environment.CredentialsPath()
+	tokenPath := environment.TokenPath()
 
 	if _, err := os.Stat(defaultConfigPath); err == nil {
 		fmt.Printf("✅ Configuration file already exists: %s\n", defaultConfigPath)
@@ -563,22 +430,21 @@ func runSetupWizard() {
 	fmt.Println()
 	fmt.Println("💡 Tips:")
 	fmt.Println("• Edit the config file to customize LLM settings")
-	fmt.Println("• Use environment variables for different profiles")
 	fmt.Println("• Run with -h to see all options")
 }
 
 // createFileLogger creates a logger that writes to the same log file as the TUI
 func createFileLogger() *log.Logger {
-	logDir := config.DefaultLogDir()
-	if logDir == "" {
+	logFile := environment.LogPath()
+	if logFile == "" {
 		return nil
 	}
 
+	logDir := filepath.Dir(logFile)
 	if err := os.MkdirAll(logDir, 0o750); err != nil {
 		return nil
 	}
 
-	logFile := filepath.Join(logDir, "giztui.log")
 	// Validate path to prevent directory traversal
 	cleanPath := filepath.Clean(logFile)
 	if strings.Contains(cleanPath, "..") {

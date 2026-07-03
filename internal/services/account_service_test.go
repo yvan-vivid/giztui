@@ -10,32 +10,52 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// writeDefaultCredentialFiles creates ~/.config/giztui/{credentials,token}.json under the
-// given home directory and returns the giztui config dir.
-func writeDefaultCredentialFiles(t *testing.T, home string, withToken bool) string {
+// writeDefaultCredentialFiles creates credentials and token files in XDG directories
+// under the given temp root and returns the data/state dirs.
+func writeDefaultCredentialFiles(t *testing.T, withToken bool) (string, string) {
 	t.Helper()
-	dir := filepath.Join(home, ".config", "giztui")
-	if err := os.MkdirAll(dir, 0o750); err != nil {
+	dataDir := filepath.Join(t.TempDir(), "share", "giztui")
+	stateDir := filepath.Join(t.TempDir(), "state", "giztui")
+	if err := os.MkdirAll(dataDir, 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "credentials.json"), []byte(`{"installed":{}}`), 0o600); err != nil {
+	if err := os.MkdirAll(stateDir, 0o750); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dataDir, "credentials.json"), []byte(`{"installed":{}}`), 0o600); err != nil {
 		t.Fatalf("write credentials: %v", err)
 	}
 	if withToken {
-		if err := os.WriteFile(filepath.Join(dir, "token.json"), []byte(`{"access_token":"x"}`), 0o600); err != nil {
+		if err := os.WriteFile(filepath.Join(stateDir, "token.json"), []byte(`{"access_token":"x"}`), 0o600); err != nil {
 			t.Fatalf("write token: %v", err)
 		}
 	}
-	return dir
+	return dataDir, stateDir
 }
 
 // TestAccountService_LegacyFallback_DefaultFilesExist verifies the regression from issue #42:
 // with no `accounts` and no `credentials`/`token` in config, but the default credential files
 // present, a default account is created so the database can initialize.
 func TestAccountService_LegacyFallback_DefaultFilesExist(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	writeDefaultCredentialFiles(t, home, true)
+	tmpRoot := t.TempDir()
+
+	dataDir := filepath.Join(tmpRoot, "share", "giztui")
+	stateDir := filepath.Join(tmpRoot, "state", "giztui")
+	if err := os.MkdirAll(dataDir, 0o750); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.MkdirAll(stateDir, 0o750); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dataDir, "credentials.json"), []byte(`{"installed":{}}`), 0o600); err != nil {
+		t.Fatalf("write credentials: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(stateDir, "token.json"), []byte(`{"access_token":"x"}`), 0o600); err != nil {
+		t.Fatalf("write token: %v", err)
+	}
+
+	t.Setenv("XDG_DATA_HOME", filepath.Join(tmpRoot, "share"))
+	t.Setenv("XDG_STATE_HOME", filepath.Join(tmpRoot, "state"))
 
 	cfg := &config.Config{} // no Accounts, no Credentials, no Token
 	svc := NewAccountService(cfg, nil)
@@ -45,8 +65,8 @@ func TestAccountService_LegacyFallback_DefaultFilesExist(t *testing.T) {
 	assert.NotNil(t, acc)
 	assert.Equal(t, "default", acc.ID)
 	assert.True(t, acc.IsActive)
-	assert.Contains(t, acc.CredPath, filepath.Join(".config", "giztui", "credentials.json"))
-	assert.Contains(t, acc.TokenPath, filepath.Join(".config", "giztui", "token.json"))
+	assert.Contains(t, acc.CredPath, "credentials.json")
+	assert.Contains(t, acc.TokenPath, "token.json")
 }
 
 // TestAccountService_LegacyFallback_NoFiles verifies that without any credential files and no
@@ -54,6 +74,8 @@ func TestAccountService_LegacyFallback_DefaultFilesExist(t *testing.T) {
 func TestAccountService_LegacyFallback_NoFiles(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("XDG_DATA_HOME", filepath.Join(home, ".local", "share"))
+	t.Setenv("XDG_STATE_HOME", filepath.Join(home, ".local", "state"))
 	// Intentionally do NOT create any credential files.
 
 	cfg := &config.Config{}
@@ -90,18 +112,23 @@ func TestAccountService_LegacyFallback_ExplicitConfigWins(t *testing.T) {
 }
 
 func TestResolveLegacyCredentialPath(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
+	tmpRoot := t.TempDir()
+	t.Setenv("XDG_DATA_HOME", filepath.Join(tmpRoot, "share"))
+	t.Setenv("XDG_STATE_HOME", filepath.Join(tmpRoot, "state"))
 
-	// Empty configured -> default ~/.config/giztui/<file>, ~ expanded.
-	got := resolveLegacyCredentialPath("", "token.json")
-	assert.Equal(t, filepath.Join(home, ".config", "giztui", "token.json"), got)
+	// Empty configured -> default XDG paths.
+	gotToken := resolveLegacyCredentialPath("", "token.json")
+	assert.Equal(t, filepath.Join(tmpRoot, "state", "giztui", "token.json"), gotToken)
+
+	gotCred := resolveLegacyCredentialPath("", "credentials.json")
+	assert.Equal(t, filepath.Join(tmpRoot, "share", "giztui", "credentials.json"), gotCred)
 
 	// Configured absolute path passes through unchanged.
-	abs := filepath.Join(home, "x", "creds.json")
+	abs := filepath.Join(tmpRoot, "x", "creds.json")
 	assert.Equal(t, abs, resolveLegacyCredentialPath(abs, "credentials.json"))
 
 	// Configured ~ path is expanded.
+	home, _ := os.UserHomeDir()
 	assert.Equal(t, filepath.Join(home, "creds.json"), resolveLegacyCredentialPath("~/creds.json", "credentials.json"))
 }
 

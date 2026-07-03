@@ -535,5 +535,5 @@ git commit -m "docs: document analyzer include_body + body_char_limit"
 
 - **Spec coverage:** config opt-in + limit (Task 1), `AnalyzerMessage.Body` (Task 2), `truncateForAnalyzer` (Task 3), payload body/snippet + limit threading (Task 4), `GetMessagePlainTexts` bulk fetch (Task 5), TUI cap+fetch+populate+progress+graceful fallback (Task 6), docs (Task 7), tests (Tasks 1,3,4,5). All spec sections mapped.
 - **Type consistency:** `truncateForAnalyzer(text string, limit int) string`, `buildBatchPayload(batch []AnalyzerMessage, bodyCharLimit int) string`, `plainTextsByID([]*gmail_v1.Message) map[string]string`, `GetMessagePlainTexts(ctx, ids []string, maxWorkers int) (map[string]string, error)`, config `IncludeBody`/`BodyCharLimit`, options `BodyCharLimit` — names match across tasks and call sites.
-- **GetServices order:** the 12-value tuple returns `EmailService` first (per CLAUDE.md), so `emailService, _, _, _, _, _, _, _, _, _, _, _ := a.GetServices()` is correct.
+- **GetServices order:** the 12-value tuple returns `EmailService` first (per AGENTS.md), so `emailService, _, _, _, _, _, _, _, _, _, _, _ := a.GetServices()` is correct.
 - **No placeholders:** every code step shows full code; commands have expected output.

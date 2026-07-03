@@ -525,7 +525,7 @@ clean up: `rm -f /tmp/giz-migrate-test.json`.
 
 - **Spec coverage:** map merge preserving comments + never-overwrite (Task 1); `:config migrate`
   (Task 2); startup notice (Task 3); `--migrate-config` flag (Task 4); `:help` + docs per the new
-  CLAUDE.md DoD (Task 5); tests for merge/migrate/no-op/invalid-JSON (Task 1) + verification (Task 6).
+  AGENTS.md DoD (Task 5); tests for merge/migrate/no-op/invalid-JSON (Task 1) + verification (Task 6).
   All spec sections mapped. Path resolution: command uses `config.DefaultConfigPath()` (consistent
   with existing `SaveConfig` usage); the flag uses the fully-resolved `configPath` (flag/env/default).
 - **Type consistency:** `deepMergeMissing(user, defaults map[string]any, prefix string) []string`,

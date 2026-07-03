@@ -304,7 +304,7 @@ Consolidating round from the v1.7.0→v1.12.0 end-to-end test pass.
 ### 🛠️ Technical Improvements
 
 - **Lint debt cleanup**: `make pre-commit-check` now passes with 0 issues. Annotated 9 intentional gosec findings with justified `// #nosec` markers (G304 on validated DB paths, G204 on hardcoded per-OS open binaries, G117 on intentional OAuth token persistence, G101 on test fixture paths) and refactored 30+ `strings.Builder.WriteString(fmt.Sprintf(...))` call-sites to the more efficient `fmt.Fprintf(&builder, ...)` form (staticcheck QF1012).
-- **Developer docs**: Refreshed `CLAUDE.md` with the current 12-value `GetServices()` signature, the canonical pre-commit verification command, a project layout overview, and the precise `make test` scope.
+- **Developer docs**: Refreshed `AGENTS.md` with the current 12-value `GetServices()` signature, the canonical pre-commit verification command, a project layout overview, and the precise `make test` scope.
 
 ---
 

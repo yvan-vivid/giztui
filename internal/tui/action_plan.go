@@ -675,7 +675,7 @@ func (a *App) updateActionPlanFooter(state *actionPlanState) {
 }
 
 // closeActionPlanPanel closes the panel and restores the list view. Synchronous — no
-// QueueUpdateDraw (CLAUDE.md ESC rule).
+// QueueUpdateDraw (AGENTS.md ESC rule).
 func (a *App) closeActionPlanPanel() {
 	if a.actionPlanState != nil && a.actionPlanState.streamingCancel != nil {
 		a.actionPlanState.streamingCancel()

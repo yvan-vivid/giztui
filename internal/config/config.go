@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ajramos/giztui/internal/environment"
 	"github.com/ajramos/giztui/internal/obsidian"
 )
 
@@ -1025,52 +1026,27 @@ func getFunctionName(configParam string) string {
 
 // DefaultConfigPath returns the default configuration file path
 func DefaultConfigPath() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return ""
-	}
-	return filepath.Join(home, ".config", "giztui", "config.json")
+	return environment.ConfigPath()
 }
 
 // DefaultCredentialPaths returns the default paths for credentials and token
 func DefaultCredentialPaths() (string, string) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", ""
-	}
-
-	configDir := filepath.Join(home, ".config", "giztui")
-	credentialsPath := filepath.Join(configDir, "credentials.json")
-	tokenPath := filepath.Join(configDir, "token.json")
-
-	return credentialsPath, tokenPath
+	return environment.CredentialsPath(), environment.TokenPath()
 }
 
 // DefaultCacheDir returns the default cache directory path
 func DefaultCacheDir() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return ""
-	}
-	return filepath.Join(home, ".config", "giztui", "cache")
+	return environment.CacheDir()
 }
 
 // DefaultSavedDir returns the default saved files directory path
 func DefaultSavedDir() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return ""
-	}
-	return filepath.Join(home, ".config", "giztui", "saved")
+	return environment.SavedDir()
 }
 
 // DefaultLogDir returns the default log directory path
 func DefaultLogDir() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return ""
-	}
-	return filepath.Join(home, ".config", "giztui")
+	return filepath.Dir(environment.LogPath())
 }
 
 // SaveConfig saves the configuration to a file
@@ -1116,8 +1092,7 @@ func LoadTemplate(templatePath, inlinePrompt, fallbackPrompt string) string {
 		if filepath.IsAbs(templatePath) {
 			fullPath = templatePath
 		} else {
-			configDir := filepath.Dir(DefaultConfigPath())
-			fullPath = filepath.Join(configDir, templatePath)
+			fullPath = filepath.Join(environment.ConfigDir(), templatePath)
 		}
 
 		// Validate path to prevent directory traversal

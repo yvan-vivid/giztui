@@ -1062,7 +1062,7 @@ func (a *App) toggleLLMTouchUp() {
 }
 ```
 
-Note: this replaces the old `setStatusPersistent`/`showStatusMessage` calls with `GetErrorHandler()` per CLAUDE.md. Confirm `gmail` and `tview` are already imported in `markdown.go` (they are).
+Note: this replaces the old `setStatusPersistent`/`showStatusMessage` calls with `GetErrorHandler()` per AGENTS.md. Confirm `gmail` and `tview` are already imported in `markdown.go` (they are).
 
 - [ ] **Step 3: Verify build**
 

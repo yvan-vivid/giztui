@@ -94,7 +94,7 @@ Debug and resolve the following issue in Gmail TUI using systematic analysis and
 - **Consider side effects** and potential regressions
 - **Plan testing approach** to verify fix
 - **Assess if architectural changes** are needed
-- **Follow established patterns** from CLAUDE.md
+- **Follow established patterns** from AGENTS.md
 
 ### 7. Implementation & Testing
 - **Apply fixes following architectural requirements**:
@@ -194,7 +194,7 @@ assert.Contains(t, content, "expected behavior")
 - Ensure theme and configuration integration
 
 ### **Documentation Updates**
-- Update `CLAUDE.md` with debugging lessons learned
+- Update `AGENTS.md` with debugging lessons learned
 - Document root cause and fix approach
 - Add safeguards to prevent recurrence
 - Update test plans if needed
@@ -229,7 +229,7 @@ assert.Contains(t, content, "expected behavior")
 - [ ] No regressions in related features
 - [ ] Build successful and linting clean
 - [ ] All tests passing (`make test-all`)
-- [ ] Lessons learned documented in CLAUDE.md
+- [ ] Lessons learned documented in AGENTS.md
 
 ## Reference Files for Debugging
 
@@ -238,7 +238,7 @@ assert.Contains(t, content, "expected behavior")
 - `internal/tui/bulk_prompts.go` - ESC handling and bulk operations
 - `internal/tui/labels.go` - Side panel picker debugging
 - `internal/tui/keys.go` - ESC key handling patterns
-- `CLAUDE.md` - Historical debugging sessions and solutions
+- `AGENTS.md` - Historical debugging sessions and solutions
 
 **Testing Framework for Debugging:**
 - `test/helpers/test_harness.go` - Test harness for isolated issue reproduction
@@ -250,7 +250,7 @@ assert.Contains(t, content, "expected behavior")
 
 **Log Analysis Tools:**
 - `a.logger.Printf()` - Current logging approach
-- Recent debugging sessions in CLAUDE.md
+- Recent debugging sessions in AGENTS.md
 - Focus management patterns in `docs/FOCUS_MANAGEMENT.md`
 
 **CRITICAL:** The logging system is your primary debugging tool. If logs don't show the issue clearly, first add more logging, then reproduce the issue.

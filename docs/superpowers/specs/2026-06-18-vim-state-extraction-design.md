@@ -80,7 +80,7 @@ type vimState struct {
 **Separation of concerns:** `vimState` owns the **pure, synchronized state machine** and returns
 *decisions*. `keys.go` keeps orchestrating the **effects** (`executeVimRangeOperation`,
 `enhancedTextView.GotoTop/GotoBottom`, `executeGoToFirst`, `ShowProgress`, `logger`). Effects always
-run **outside** the lock (CLAUDE.md rule: never run UI actions under a mutex).
+run **outside** the lock (AGENTS.md rule: never run UI actions under a mutex).
 
 **Time injection:** methods receive `now time.Time` and already-resolved `time.Duration` values
 (keys.go reads `a.Keys.VimRangeTimeoutMs` / `VimNavigationTimeoutMs` with their `<=0` fallbacks and

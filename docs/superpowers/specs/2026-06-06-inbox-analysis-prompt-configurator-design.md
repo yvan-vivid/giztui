@@ -34,7 +34,7 @@ The user reports two unresolved pain points:
 2. Let the user describe an analytical intent in natural language and obtain a working prompt template they can iterate on, apply, and save for reuse.
 3. Reuse the existing GizTUI infrastructure (bulk prompt service, prompt storage, error handling, theming, ESC patterns) to keep net-new code small and maintainable.
 4. Degrade gracefully when the LLM produces unexpected output — the user never gets a dead-end screen.
-5. Conform to all mandatory patterns in `CLAUDE.md` (service-first, ErrorHandler-only, ActivePicker enum, configurable keys, command parity, theming).
+5. Conform to all mandatory patterns in `AGENTS.md` (service-first, ErrorHandler-only, ActivePicker enum, configurable keys, command parity, theming).
 
 ## 4. Non-goals (out of scope for this spec)
 
@@ -386,7 +386,7 @@ Quick-actions assigned heuristically:
 | Configurator with unsaved changes | Prompt "discard?" | Yes → close, No → stay |
 | Quick action in progress | Cancel remaining operations | Already-executed actions stay applied |
 
-All ESC handlers must follow the synchronous pattern documented in `CLAUDE.md` (no `QueueUpdateDraw` inside ESC handlers).
+All ESC handlers must follow the synchronous pattern documented in `AGENTS.md` (no `QueueUpdateDraw` inside ESC handlers).
 
 ## 9. Error handling
 
@@ -462,7 +462,7 @@ Added to `config.json` under a new `ai_assist` section (or extending existing AI
 
 ## 12. Commands (parity with shortcuts)
 
-Following the mandatory shortcut/command parity rule from `CLAUDE.md`.
+Following the mandatory shortcut/command parity rule from `AGENTS.md`.
 
 | Command | Aliases | Description |
 |---|---|---|
@@ -549,7 +549,7 @@ Run with `AIService` mocked and `MessageRepository` populated from fixtures:
 
 ### 13.7 — Pre-commit gate
 
-`make pre-commit-check` must pass before any commit (fmt + vet + golangci-lint + essential tests), per the existing `CLAUDE.md` rule.
+`make pre-commit-check` must pass before any commit (fmt + vet + golangci-lint + essential tests), per the existing `AGENTS.md` rule.
 
 ## 14. Open items (resolved during implementation planning)
 
@@ -571,7 +571,7 @@ These are decisions deliberately deferred from the spec to the implementation pl
 
 ## 16. References
 
-- `CLAUDE.md` — project architectural rules (service-first, ErrorHandler, ActivePicker, theming, ESC patterns, command parity).
+- `AGENTS.md` — project architectural rules (service-first, ErrorHandler, ActivePicker, theming, ESC patterns, command parity).
 - `internal/services/interfaces.go` — existing service contracts including the discovered `BulkPromptService` interface.
 - `internal/services/bulk_prompt_service.go` — existing implementation reused by the inbox analyzer.
 - `internal/tui/bulk_prompts.go` — existing bulk prompt picker, reused as base for the enriched picker.

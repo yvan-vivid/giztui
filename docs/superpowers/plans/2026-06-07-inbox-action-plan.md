@@ -1445,7 +1445,7 @@ func (a *App) openActionPlanWithText(customPromptText string) {
 			services.InboxAnalyzerOptions{BatchSize: batchSize, MaxBatches: maxBatches, CustomPromptText: customPromptText},
 			func(p *services.ActionPlan) {
 				// Progress callback runs in this goroutine. Direct UI update (NEVER
-				// QueueUpdateDraw inside streaming/progress callbacks — CLAUDE.md). Guard
+				// QueueUpdateDraw inside streaming/progress callbacks — AGENTS.md). Guard
 				// with the captured state to avoid writing into a reopened panel.
 				if ctx.Err() != nil || a.actionPlanState != state {
 					return
@@ -1495,7 +1495,7 @@ func (a *App) renderActionPlanPanel(state *actionPlanState) {
 }
 
 // closeActionPlanPanel closes the panel and restores the list view. Synchronous — no
-// QueueUpdateDraw (CLAUDE.md ESC rule).
+			// QueueUpdateDraw (AGENTS.md ESC rule).
 func (a *App) closeActionPlanPanel() {
 	if a.actionPlanState != nil && a.actionPlanState.streamingCancel != nil {
 		a.actionPlanState.streamingCancel()

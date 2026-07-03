@@ -10,6 +10,7 @@ import (
 
 	"github.com/ajramos/giztui/internal/config"
 	"github.com/ajramos/giztui/internal/db"
+	"github.com/ajramos/giztui/internal/environment"
 )
 
 // DatabaseManagerImpl implements DatabaseManager interface for multi-account database management
@@ -163,7 +164,7 @@ func (dm *DatabaseManagerImpl) GetCurrentAccountEmail() string {
 // getDatabasePathForAccount determines the database file path for a given account email
 func (dm *DatabaseManagerImpl) getDatabasePathForAccount(accountEmail string) (string, error) {
 	// Use the same logic as main.go to determine database path
-	baseDir := config.DefaultCacheDir()
+	baseDir := environment.CacheDir()
 	if dm.config.LLM.CachePath != "" {
 		baseDir = dm.config.LLM.CachePath
 	}

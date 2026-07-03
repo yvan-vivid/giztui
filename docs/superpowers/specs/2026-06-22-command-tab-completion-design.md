@@ -88,7 +88,7 @@ New file `internal/tui/command_completion.go` (TUI layer; completion is presenta
 - [ ] Hardcoded `generateCommandSuggestion` prefix map removed; completion derives from the registry.
 - [ ] Registry covers every `executeCommand` case (drift-guard test).
 - [ ] Unit tests + harness smoke test green.
-- [ ] In-app `:help` / `docs/KEYBOARD_SHORTCUTS.md` note that Tab cycles command/arg completions (Definition of Done per CLAUDE.md).
+- [ ] In-app `:help` / `docs/KEYBOARD_SHORTCUTS.md` note that Tab cycles command/arg completions (Definition of Done per AGENTS.md).
 
 ## Open question (decide during planning)
 

@@ -78,7 +78,7 @@ show `ErrorHandler.ShowInfo`: `ℹ N new config option(s) available — run :con
 - `--migrate-config` flag (`main.go`, alongside `--setup`): run `MigrateConfigFile`, print the
   result to stdout, exit. For scripts / headless.
 
-### D) Definition-of-Done follow-through (new CLAUDE.md steps)
+### D) Definition-of-Done follow-through (new AGENTS.md steps)
 
 - Update the in-app `:help` / `?` command list to include `:config migrate`.
 - Update `docs/CONFIGURATION.md` (document `:config migrate` / `--migrate-config`).

@@ -115,7 +115,7 @@ a key via config. Revisit if the user prefers a bound default.
 
 ## Architecture (Service-First)
 
-Per CLAUDE.md, business logic lives in `internal/services/`; the TUI only
+Per AGENTS.md, business logic lives in `internal/services/`; the TUI only
 orchestrates UI and the ticker lifecycle.
 
 **New `AutoRefreshService`** (interface in
@@ -136,7 +136,7 @@ orchestrates UI and the ticker lifecycle.
   safe-vs-notify, and perform either the incremental prepend or the status
   indicator update.
 
-Threading rules (CLAUDE.md): detection and metadata fetch run in goroutines; UI
+Threading rules (AGENTS.md): detection and metadata fetch run in goroutines; UI
 updates follow existing patterns; **no `QueueUpdateDraw` in ESC/cleanup/stream
 paths**. The ticker goroutine selects on a stop channel and the app context so
 it exits cleanly on shutdown.
@@ -182,7 +182,7 @@ tick computes "new" relative to the newly active account's inbox.
   search/folder the ticker idles and shows neither). (Hard-won lesson:
   real-app E2E catches what unit tests miss.)
 
-## Command Parity Checklist (CLAUDE.md)
+## Command Parity Checklist (AGENTS.md)
 
 - Keybinding `Keys.AutoRefresh` → command `:autorefresh` / `:ar`.
 - Added to `executeCommand()` and `generateCommandSuggestion()` in

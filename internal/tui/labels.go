@@ -682,7 +682,7 @@ func (a *App) expandLabelsBrowseWithMode(messageID string, moveMode bool) {
 							if a.logger != nil {
 								a.logger.Printf("=== INBOX MOVE TEST LOG ===")
 								a.logger.Printf("[UI DEBUG] About to call emailService.MoveToSystemFolder for message %s to INBOX", mid)
-								a.logger.Printf("Logger is working! File path should be ~/.config/giztui/giztui.log")
+								a.logger.Printf("Logger is working! File path should be in XDG_CACHE_HOME/giztui/giztui.log")
 							} else {
 								// Fallback logging if logger is nil - use ErrorHandler instead of direct output
 								go func() {

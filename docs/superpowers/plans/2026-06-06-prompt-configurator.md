@@ -980,7 +980,7 @@ func (a *App) openPromptConfigurator(pctx promptConfiguratorContext) {
 
 // closePromptConfigurator closes the configurator and restores the original view.
 func (a *App) closePromptConfigurator() {
-	// Synchronous cleanup — NEVER use QueueUpdateDraw in close paths (CLAUDE.md rule).
+	// Synchronous cleanup — NEVER use QueueUpdateDraw in close paths (AGENTS.md rule).
 	if a.promptConfiguratorState != nil && a.promptConfiguratorState.streamingCancel != nil {
 		a.promptConfiguratorState.streamingCancel()
 		a.promptConfiguratorState.streamingCancel = nil
@@ -1112,7 +1112,7 @@ func (a *App) generateConfiguratorPrompt(intent string) {
 		default:
 		}
 		accumulator += token
-		// Direct UI update — CLAUDE.md prohibits QueueUpdateDraw inside streaming callbacks.
+		// Direct UI update — AGENTS.md prohibits QueueUpdateDraw inside streaming callbacks.
 		if a.promptConfiguratorState != nil && a.promptConfiguratorState.promptArea != nil && ctx.Err() == nil {
 			a.promptConfiguratorState.promptArea.SetText(accumulator, false)
 		}
@@ -2290,7 +2290,7 @@ Run through this list with fresh eyes before considering the plan done:
   - §13 (testing) → Tasks 2–6, 19, 21
 - [ ] **No placeholders**: every step has either exact code or exact commands.
 - [ ] **Type consistency**: `PromptGenerationOptions`, `GeneratedPrompt`, `promptConfiguratorContext`, `promptConfiguratorState` are used consistently across tasks.
-- [ ] **CLAUDE.md compliance**:
+- [ ] **AGENTS.md compliance**:
   - All status messages go through `a.GetErrorHandler().Show*` — yes ✓
   - No `QueueUpdateDraw` inside streaming callbacks — yes ✓
   - No `QueueUpdateDraw` inside ESC/close paths — yes ✓

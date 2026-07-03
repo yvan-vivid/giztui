@@ -246,6 +246,6 @@ Before considering complete, verify ALL of these:
 - `docs/CONFIGURATION.md` - Configuration reference
 - `docs/THEMING.md` - Theme system and component guidelines
 
-**CRITICAL:** Read `CLAUDE.md` thoroughly - it contains the essential architectural patterns, debugging lessons, and "tricks" that prevent bugs and ensure features integrate seamlessly.
+**CRITICAL:** Read `AGENTS.md` thoroughly - it contains the essential architectural patterns, debugging lessons, and "tricks" that prevent bugs and ensure features integrate seamlessly.
 
 Please implement this feature following ALL requirements above, especially the Gmail TUI-specific patterns and architectural tricks that make features robust and user-friendly.

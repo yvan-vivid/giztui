@@ -7,11 +7,11 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/ajramos/giztui/internal/config"
+	"github.com/ajramos/giztui/internal/environment"
 	"github.com/ajramos/giztui/internal/gmail"
 	"github.com/ajramos/giztui/pkg/auth"
 )
@@ -96,7 +96,7 @@ func (s *AccountServiceImpl) loadAccountsFromConfig() {
 
 	// Backward compatibility: if no accounts configured, create a default account.
 	// Prefer the legacy config Credentials/Token fields; if those are empty, fall back to
-	// the default ~/.config/giztui/{credentials,token}.json paths when those files exist —
+	// the XDG default credential paths when those files exist —
 	// mirroring how cmd/giztui bootstraps the Gmail client. Without this, users who only
 	// have the default credential files (and no `credentials`/`token` in config.json, and
 	// no `accounts` array) get no account, so the database never opens and the prompt,
@@ -137,25 +137,20 @@ func (s *AccountServiceImpl) loadAccountsFromConfig() {
 }
 
 // resolveLegacyCredentialPath returns the configured path if set, otherwise the default
-// ~/.config/giztui/<defaultFilename>. A leading ~ is expanded to the user's home directory.
+// XDG data directory path. A leading ~ is expanded to the user's home directory.
 func resolveLegacyCredentialPath(configured, defaultFilename string) string {
 	p := configured
 	if p == "" {
-		p = filepath.Join("~", ".config", "giztui", defaultFilename)
+		switch defaultFilename {
+		case "credentials.json":
+			return environment.CredentialsPath()
+		case "token.json":
+			return environment.TokenPath()
+		default:
+			p = filepath.Join(environment.DataDir(), defaultFilename)
+		}
 	}
-	return expandHomePath(p)
-}
-
-// expandHomePath expands a leading ~ to the user's home directory.
-func expandHomePath(path string) string {
-	if !strings.HasPrefix(path, "~") {
-		return path
-	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return path
-	}
-	return filepath.Join(home, path[1:])
+	return environment.ExpandPath(p)
 }
 
 // fileExists reports whether path exists and is a regular file.
@@ -266,7 +261,7 @@ func (s *AccountServiceImpl) AddAccount(ctx context.Context, account *Account) e
 
 	// Validate paths exist
 	if account.CredPath != "" {
-		credPath := s.expandPath(account.CredPath)
+		credPath := environment.ExpandPath(account.CredPath)
 		if _, err := os.Stat(credPath); err != nil {
 			return fmt.Errorf("credentials file not found: %s", credPath)
 		}
@@ -456,8 +451,8 @@ func (s *AccountServiceImpl) initializeClient(ctx context.Context, accountID str
 	}
 
 	// Expand paths
-	credPath := s.expandPath(account.CredPath)
-	tokenPath := s.expandPath(account.TokenPath)
+	credPath := environment.ExpandPath(account.CredPath)
+	tokenPath := environment.ExpandPath(account.TokenPath)
 
 	// Debug logging for credential paths
 	if s.logger != nil {
@@ -487,20 +482,6 @@ func (s *AccountServiceImpl) initializeClient(ctx context.Context, accountID str
 	return nil
 }
 
-// expandPath expands ~ to home directory
-func (s *AccountServiceImpl) expandPath(path string) string {
-	if !strings.HasPrefix(path, "~") {
-		return path
-	}
-
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return path
-	}
-
-	return filepath.Join(home, path[2:])
-}
-
 // extractEmailFromToken attempts to extract email from an existing token file
 func (s *AccountServiceImpl) extractEmailFromToken(tokenPath string) string {
 	if tokenPath == "" {
@@ -508,7 +489,7 @@ func (s *AccountServiceImpl) extractEmailFromToken(tokenPath string) string {
 	}
 
 	// Expand the path
-	expandedPath := s.expandPath(tokenPath)
+	expandedPath := environment.ExpandPath(tokenPath)
 
 	// Check if token file exists
 	if _, err := os.Stat(expandedPath); os.IsNotExist(err) {

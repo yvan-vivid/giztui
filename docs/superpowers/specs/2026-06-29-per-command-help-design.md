@@ -113,5 +113,5 @@ Esc → `toggleHelp()` restore branch → reader restored. Pure event-loop; no I
 - [ ] `generateCommandHelpText` (rich + fallback) + tests.
 - [ ] `showHelpScreen` extracted; `toggleHelp` uses it; `:help <cmd>` wired.
 - [ ] Harness: `:help search` shows it + Esc restores; gate green.
-- [ ] In-app `?` help: add a one-line note that `:help <cmd>` exists (Definition of Done per CLAUDE.md).
+- [ ] In-app `?` help: add a one-line note that `:help <cmd>` exists (Definition of Done per AGENTS.md).
 - [ ] No behavior change to the full `?` help.
