@@ -175,18 +175,9 @@ var commandRegistry = []commandSpec{
 		examples: []string{":accounts", ":accounts switch work"},
 	}},
 	{name: "prompt", aliases: []string{"pr", "p"}, completeArg: completePromptArg, help: &cmdHelp{
-		summary:  "AI prompt library and management.",
-		syntax:   ":prompt [list|create|update|export|delete|stats]",
-		examples: []string{":prompt", ":prompt list"},
-	}},
-	{name: "prompt-new", aliases: []string{"pn"}, help: &cmdHelp{
-		summary: "Create a new AI prompt template.",
-	}},
-	{name: "prompt-refine", aliases: []string{"prf"}, help: &cmdHelp{
-		summary: "Iteratively refine the current AI result with a follow-up instruction.",
-	}},
-	{name: "prompt-save", aliases: []string{"ps"}, help: &cmdHelp{
-		summary: "Save the current prompt as a reusable template.",
+		summary:  "AI prompt library and prompt configurator.",
+		syntax:   ":prompt [list|new|refine|save|create|update|export|delete|stats]",
+		examples: []string{":prompt", ":prompt list", ":prompt new", ":prompt refine make it more formal", ":prompt save"},
 	}},
 	{name: "action-plan", aliases: []string{"plan", "ap"}, help: &cmdHelp{
 		summary: "Run the AI Inbox Action Plan over the selected messages.",
@@ -379,7 +370,7 @@ func completePromptArg(a *App, rest string) []string {
 	if head != "" {
 		return nil
 	}
-	return withHead("", filterByPrefix([]string{"create", "delete", "export", "list", "stats", "update"}, prefix))
+	return withHead("", filterByPrefix([]string{"create", "delete", "export", "list", "new", "refine", "save", "stats", "update"}, prefix))
 }
 
 // completeThemeArg: ':theme <subcommand> [name]'. First token → list/preview/set; after set/preview

@@ -1423,6 +1423,12 @@ func (a *App) executePromptCommand(args []string) {
 	switch subCommand {
 	case "list", "l":
 		a.openPromptManager()
+	case "new", "n":
+		a.executePromptNewCommand(subArgs)
+	case "refine", "r":
+		a.executePromptRefineCommand(subArgs)
+	case "save":
+		a.executePromptSaveCommand(subArgs)
 	case "create", "c":
 		a.executePromptCreate(subArgs)
 	case "update", "u":
@@ -1435,7 +1441,7 @@ func (a *App) executePromptCommand(args []string) {
 		a.executePromptStats(subArgs)
 	default:
 		go func() {
-			a.GetErrorHandler().ShowError(a.ctx, fmt.Sprintf("Unknown prompt command: %s. Use 'list', 'create', 'update', 'export', 'delete', or 'stats'", subCommand))
+			a.GetErrorHandler().ShowError(a.ctx, fmt.Sprintf("Unknown prompt command: %s. Use 'list', 'new', 'refine', 'save', 'create', 'update', 'export', 'delete', or 'stats'", subCommand))
 		}()
 	}
 }
@@ -2152,17 +2158,20 @@ func (a *App) executePromptNewCommand(args []string) {
 	}
 
 	a.openPromptConfigurator(pctx)
+	// openPromptConfigurator focused its intent field, but hideCommandBar()'s
+	// restoreFocusAfterModal() would re-focus the message list. "keep" leaves our focus.
+	a.cmd.focusOverride = "keep"
 }
 
 // executePromptRefineCommand applies a refinement to the active configurator prompt.
-// Usage: :prompt-refine make the output JSON
+// Usage: :prompt refine make the output JSON
 func (a *App) executePromptRefineCommand(args []string) {
 	if a.promptConfiguratorState == nil {
-		a.GetErrorHandler().ShowWarning(a.ctx, "Open the configurator first (:prompt-new)")
+		a.GetErrorHandler().ShowWarning(a.ctx, "Open the configurator first (:prompt new)")
 		return
 	}
 	if len(args) == 0 {
-		a.GetErrorHandler().ShowWarning(a.ctx, "Usage: :prompt-refine <refinement instruction>")
+		a.GetErrorHandler().ShowWarning(a.ctx, "Usage: :prompt refine <refinement instruction>")
 		return
 	}
 	refinement := strings.Join(args, " ")
@@ -2177,7 +2186,7 @@ func (a *App) executePromptRefineCommand(args []string) {
 // executePromptSaveCommand triggers the save dialog for the active configurator prompt.
 func (a *App) executePromptSaveCommand(args []string) {
 	if a.promptConfiguratorState == nil {
-		a.GetErrorHandler().ShowWarning(a.ctx, "Open the configurator first (:prompt-new)")
+		a.GetErrorHandler().ShowWarning(a.ctx, "Open the configurator first (:prompt new)")
 		return
 	}
 	a.savePromptFromConfigurator()

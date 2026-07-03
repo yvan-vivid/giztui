@@ -1455,12 +1455,17 @@ func (a *App) bindKeys() {
 			if messageIndex >= 0 && messageIndex < len(a.ids) {
 				a.setStatusPersistent(fmt.Sprintf("Message %d/%d", messageIndex+1, len(a.ids)))
 				id := a.ids[messageIndex]
+				// A re-select of the SAME message must not tear down the AI panel. Auto-refresh
+				// prepends new mail and re-selects the cursor at its shifted row (auto_refresh.go
+				// table.Select), which fires this handler even though the message didn't change —
+				// that would otherwise wipe an open summary or an in-progress prompt result.
+				sameMessage := id == a.GetCurrentMessageID()
 				go a.showMessageWithoutFocus(id)
 				if a.isLabelsPickerActive() {
 					go a.populateLabelsQuickView(id)
 				}
 				// Close AI panel when changing messages to avoid conflicts and storm requests
-				if a.aiPanel.visible.Load() {
+				if !sameMessage && a.aiPanel.visible.Load() {
 					if split, ok := a.views["contentSplit"].(*tview.Flex); ok {
 						split.ResizeItem(a.aiSummaryView, 0, 0)
 					}
