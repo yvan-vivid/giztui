@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -36,13 +35,17 @@ func NewAccountService(cfg *config.Config, logger *log.Logger) *AccountServiceIm
 	}
 
 	// Initialize accounts from config
-	service.loadAccountsFromConfig()
+	if err := service.loadAccountsFromConfig(); err != nil {
+		if logger != nil {
+			logger.Printf("AccountService: Failed to load accounts: %v", err)
+		}
+	}
 
 	return service
 }
 
 // loadAccountsFromConfig initializes accounts from configuration
-func (s *AccountServiceImpl) loadAccountsFromConfig() {
+func (s *AccountServiceImpl) loadAccountsFromConfig() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -52,30 +55,32 @@ func (s *AccountServiceImpl) loadAccountsFromConfig() {
 
 	// Load multi-account configuration
 	for _, accountCfg := range s.config.Accounts {
+		// Credentials field is required
+		if accountCfg.Credentials == "" {
+			return fmt.Errorf("account %q: credentials field is required", accountCfg.ID)
+		}
+
 		account := &Account{
-			ID:          accountCfg.ID,
-			DisplayName: accountCfg.DisplayName,
-			CredPath:    accountCfg.Credentials,
-			TokenPath:   accountCfg.Token,
-			IsActive:    accountCfg.Active,
-			Status:      AccountStatusUnknown,
-			LastUsed:    time.Now(),
+			ID:              accountCfg.ID,
+			CredentialsName: accountCfg.Credentials,
+			DisplayName:     accountCfg.DisplayName,
+			IsActive:        accountCfg.Active,
+			Status:          AccountStatusUnknown,
+			LastUsed:        time.Now(),
 		}
 
 		// Try to extract email from existing token if possible
-		if email := s.extractEmailFromToken(account.TokenPath); email != "" {
+		if email := s.extractEmailFromToken(account.ID); email != "" {
 			account.Email = email
 		}
 
 		if account.IsActive {
 			if s.activeID != "" {
-				// Multiple active accounts found - deactivate this one
 				account.IsActive = false
 				if s.logger != nil {
 					s.logger.Printf("AccountService: Multiple active accounts found, keeping first active: %s", s.activeID)
 				}
 			} else {
-				// This is the first active account - keep it active
 				s.activeID = account.ID
 				if s.logger != nil {
 					s.logger.Printf("AccountService: Set active account: %s (%s) - Email: %s", account.ID, account.DisplayName, account.Email)
@@ -89,68 +94,10 @@ func (s *AccountServiceImpl) loadAccountsFromConfig() {
 		}
 	}
 
-	// Log final account summary
 	if s.logger != nil {
 		s.logger.Printf("AccountService: Account loading complete - Total: %d, Active: %s", len(s.accounts), s.activeID)
 	}
-
-	// Backward compatibility: if no accounts configured, create a default account.
-	// Prefer the legacy config Credentials/Token fields; if those are empty, fall back to
-	// the XDG default credential paths when those files exist —
-	// mirroring how cmd/giztui bootstraps the Gmail client. Without this, users who only
-	// have the default credential files (and no `credentials`/`token` in config.json, and
-	// no `accounts` array) get no account, so the database never opens and the prompt,
-	// saved-query, and Obsidian services silently fail to initialize.
-	if len(s.accounts) == 0 {
-		credPath := resolveLegacyCredentialPath(s.config.Credentials, "credentials.json")
-		tokenPath := resolveLegacyCredentialPath(s.config.Token, "token.json")
-
-		if fileExists(credPath) || fileExists(tokenPath) {
-			if s.logger != nil {
-				s.logger.Printf("AccountService: No accounts configured, creating default account (creds=%s, token=%s)", credPath, tokenPath)
-			}
-			defaultAccount := &Account{
-				ID:          "default",
-				DisplayName: "Default Account",
-				CredPath:    credPath,
-				TokenPath:   tokenPath,
-				IsActive:    true,
-				Status:      AccountStatusUnknown,
-				LastUsed:    time.Now(),
-			}
-
-			// Try to extract email from existing token if possible
-			if email := s.extractEmailFromToken(defaultAccount.TokenPath); email != "" {
-				defaultAccount.Email = email
-			}
-
-			s.accounts["default"] = defaultAccount
-			s.activeID = "default"
-
-			if s.logger != nil {
-				s.logger.Printf("AccountService: Created default account - Email: %s", defaultAccount.Email)
-			}
-		} else if s.logger != nil {
-			s.logger.Printf("AccountService: No accounts and no credential files found (creds=%s, token=%s)", credPath, tokenPath)
-		}
-	}
-}
-
-// resolveLegacyCredentialPath returns the configured path if set, otherwise the default
-// XDG data directory path. A leading ~ is expanded to the user's home directory.
-func resolveLegacyCredentialPath(configured, defaultFilename string) string {
-	p := configured
-	if p == "" {
-		switch defaultFilename {
-		case "credentials.json":
-			return environment.CredentialsPath()
-		case "token.json":
-			return environment.TokenPath()
-		default:
-			p = filepath.Join(environment.DataDir(), defaultFilename)
-		}
-	}
-	return environment.ExpandPath(p)
+	return nil
 }
 
 // fileExists reports whether path exists and is a regular file.
@@ -254,17 +201,20 @@ func (s *AccountServiceImpl) AddAccount(ctx context.Context, account *Account) e
 		return fmt.Errorf("account ID cannot be empty")
 	}
 
+	// Credentials field is required
+	if account.CredentialsName == "" {
+		return fmt.Errorf("account %s: credentials field is required", account.ID)
+	}
+
 	// Check for duplicate ID
 	if _, exists := s.accounts[account.ID]; exists {
 		return fmt.Errorf("account with ID %s already exists", account.ID)
 	}
 
-	// Validate paths exist
-	if account.CredPath != "" {
-		credPath := environment.ExpandPath(account.CredPath)
-		if _, err := os.Stat(credPath); err != nil {
-			return fmt.Errorf("credentials file not found: %s", credPath)
-		}
+	// Validate credential file exists at the resolved path
+	credPath := environment.AccountCredentialsPath(account.CredentialsName)
+	if _, err := os.Stat(credPath); err != nil {
+		return fmt.Errorf("credentials file not found: %s", credPath)
 	}
 
 	// Set defaults
@@ -328,8 +278,6 @@ func (s *AccountServiceImpl) UpdateAccount(ctx context.Context, account *Account
 
 	// Update fields
 	existingAccount.DisplayName = account.DisplayName
-	existingAccount.CredPath = account.CredPath
-	existingAccount.TokenPath = account.TokenPath
 	existingAccount.Email = account.Email
 	existingAccount.Status = account.Status
 
@@ -445,16 +393,10 @@ func (s *AccountServiceImpl) initializeClient(ctx context.Context, accountID str
 		return fmt.Errorf("account %s not found", accountID)
 	}
 
-	// Validate paths
-	if account.CredPath == "" || account.TokenPath == "" {
-		return fmt.Errorf("credentials or token path not configured for account %s", accountID)
-	}
+	// Resolve paths from account config
+	credPath := environment.AccountCredentialsPath(account.CredentialsName)
+	tokenPath := environment.AccountTokenPath(accountID)
 
-	// Expand paths
-	credPath := environment.ExpandPath(account.CredPath)
-	tokenPath := environment.ExpandPath(account.TokenPath)
-
-	// Debug logging for credential paths
 	if s.logger != nil {
 		s.logger.Printf("initializeClient: account %s - credPath: %s, tokenPath: %s", accountID, credPath, tokenPath)
 	}
@@ -483,23 +425,18 @@ func (s *AccountServiceImpl) initializeClient(ctx context.Context, accountID str
 }
 
 // extractEmailFromToken attempts to extract email from an existing token file
-func (s *AccountServiceImpl) extractEmailFromToken(tokenPath string) string {
-	if tokenPath == "" {
-		return ""
-	}
-
-	// Expand the path
-	expandedPath := environment.ExpandPath(tokenPath)
+func (s *AccountServiceImpl) extractEmailFromToken(accountID string) string {
+	tokenPath := environment.AccountTokenPath(accountID)
 
 	// Check if token file exists
-	if _, err := os.Stat(expandedPath); os.IsNotExist(err) {
+	if _, err := os.Stat(tokenPath); os.IsNotExist(err) {
 		return ""
 	}
 
 	// Try to read and parse the token file to extract email
 	// This is a best-effort approach - if it fails, we just return empty
 	// #nosec G304 - This is reading user's own token file from config
-	tokenData, err := os.ReadFile(expandedPath)
+	tokenData, err := os.ReadFile(tokenPath)
 	if err != nil {
 		return ""
 	}

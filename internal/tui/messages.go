@@ -13,6 +13,7 @@ import (
 
 	calclient "github.com/ajramos/giztui/internal/calendar"
 	"github.com/ajramos/giztui/internal/config"
+	"github.com/ajramos/giztui/internal/environment"
 	"github.com/ajramos/giztui/internal/gmail"
 	"github.com/ajramos/giztui/internal/render"
 	"github.com/ajramos/giztui/internal/services"
@@ -3276,14 +3277,20 @@ func (a *App) isInsufficientPermissions(err error) bool {
 
 // reauthorizeCalendar runs OAuth flow with Calendar scopes and swaps the client
 func (a *App) reauthorizeCalendar() error {
-	cred, tok := config.DefaultCredentialPaths()
-	if strings.TrimSpace(a.Config.Credentials) != "" {
-		cred = a.Config.Credentials
+	credDir, tokenDir := config.DefaultCredentialPaths()
+	activeAccount, err := a.accountService.GetActiveAccount(a.ctx)
+	if err == nil && activeAccount != nil {
+		cred := environment.AccountCredentialsPath(activeAccount.CredentialsName)
+		tok := environment.AccountTokenPath(activeAccount.ID)
+		svc, err := auth.NewCalendarService(a.ctx, cred, tok, "https://www.googleapis.com/auth/calendar.events")
+		if err != nil {
+			return err
+		}
+		a.Calendar = calclient.NewClient(svc)
+		return nil
 	}
-	if strings.TrimSpace(a.Config.Token) != "" {
-		tok = a.Config.Token
-	}
-	svc, err := auth.NewCalendarService(a.ctx, cred, tok, "https://www.googleapis.com/auth/calendar.events")
+	// Fallback to directory defaults (won't work but won't crash)
+	svc, err := auth.NewCalendarService(a.ctx, credDir+"/default.json", tokenDir+"/default.json", "https://www.googleapis.com/auth/calendar.events")
 	if err != nil {
 		return err
 	}

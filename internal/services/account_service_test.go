@@ -10,73 +10,64 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// writeDefaultCredentialFiles creates credentials and token files in XDG directories
-// under the given temp root and returns the data/state dirs.
-func writeDefaultCredentialFiles(t *testing.T, withToken bool) (string, string) {
+// writeAccountCredentialFiles creates credentials and token files for an account
+// in the new directory-based structure (credentials/<credName>.json, tokens/<accountID>.json).
+func writeAccountCredentialFiles(t *testing.T, tmpRoot, credName, accountID string, withToken bool) {
 	t.Helper()
-	dataDir := filepath.Join(t.TempDir(), "share", "giztui")
-	stateDir := filepath.Join(t.TempDir(), "state", "giztui")
-	if err := os.MkdirAll(dataDir, 0o750); err != nil {
-		t.Fatalf("mkdir: %v", err)
+	credDir := filepath.Join(tmpRoot, "share", "giztui", "credentials")
+	tokenDir := filepath.Join(tmpRoot, "state", "giztui", "tokens")
+	if err := os.MkdirAll(credDir, 0o750); err != nil {
+		t.Fatalf("mkdir credDir: %v", err)
 	}
-	if err := os.MkdirAll(stateDir, 0o750); err != nil {
-		t.Fatalf("mkdir: %v", err)
+	if err := os.MkdirAll(tokenDir, 0o750); err != nil {
+		t.Fatalf("mkdir tokenDir: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(dataDir, "credentials.json"), []byte(`{"installed":{}}`), 0o600); err != nil {
+	credFile := filepath.Join(credDir, credName+".json")
+	if err := os.WriteFile(credFile, []byte(`{"installed":{}}`), 0o600); err != nil {
 		t.Fatalf("write credentials: %v", err)
 	}
 	if withToken {
-		if err := os.WriteFile(filepath.Join(stateDir, "token.json"), []byte(`{"access_token":"x"}`), 0o600); err != nil {
+		tokenFile := filepath.Join(tokenDir, accountID+".json")
+		if err := os.WriteFile(tokenFile, []byte(`{"access_token":"x"}`), 0o600); err != nil {
 			t.Fatalf("write token: %v", err)
 		}
 	}
-	return dataDir, stateDir
 }
 
-// TestAccountService_LegacyFallback_DefaultFilesExist verifies the regression from issue #42:
-// with no `accounts` and no `credentials`/`token` in config, but the default credential files
-// present, a default account is created so the database can initialize.
-func TestAccountService_LegacyFallback_DefaultFilesExist(t *testing.T) {
+// TestAccountService_LoadAccounts_ConfiguredAccount verifies that configured accounts
+// are loaded and paths are resolved from the credentials name.
+func TestAccountService_LoadAccounts_ConfiguredAccount(t *testing.T) {
 	tmpRoot := t.TempDir()
 
-	dataDir := filepath.Join(tmpRoot, "share", "giztui")
-	stateDir := filepath.Join(tmpRoot, "state", "giztui")
-	if err := os.MkdirAll(dataDir, 0o750); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
-	if err := os.MkdirAll(stateDir, 0o750); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(dataDir, "credentials.json"), []byte(`{"installed":{}}`), 0o600); err != nil {
-		t.Fatalf("write credentials: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(stateDir, "token.json"), []byte(`{"access_token":"x"}`), 0o600); err != nil {
-		t.Fatalf("write token: %v", err)
-	}
+	// Create credential files for "personal" account using "google-oauth" credentials
+	writeAccountCredentialFiles(t, tmpRoot, "google-oauth", "personal", true)
 
 	t.Setenv("XDG_DATA_HOME", filepath.Join(tmpRoot, "share"))
 	t.Setenv("XDG_STATE_HOME", filepath.Join(tmpRoot, "state"))
 
-	cfg := &config.Config{} // no Accounts, no Credentials, no Token
+	cfg := &config.Config{
+		Accounts: []config.AccountConfig{
+			{ID: "personal", Credentials: "google-oauth", DisplayName: "Personal", Active: true},
+		},
+	}
 	svc := NewAccountService(cfg, nil)
 
 	acc, err := svc.GetActiveAccount(context.Background())
 	assert.NoError(t, err)
 	assert.NotNil(t, acc)
-	assert.Equal(t, "default", acc.ID)
+	assert.Equal(t, "personal", acc.ID)
+	assert.Equal(t, "google-oauth", acc.CredentialsName)
+	assert.Equal(t, "Personal", acc.DisplayName)
 	assert.True(t, acc.IsActive)
-	assert.Contains(t, acc.CredPath, "credentials.json")
-	assert.Contains(t, acc.TokenPath, "token.json")
 }
 
-// TestAccountService_LegacyFallback_NoFiles verifies that without any credential files and no
-// config, no account is created (and GetActiveAccount errors), rather than a phantom account.
-func TestAccountService_LegacyFallback_NoFiles(t *testing.T) {
+// TestAccountService_LoadAccounts_NoAccounts verifies that with no accounts configured,
+// GetActiveAccount returns an error (no legacy fallback).
+func TestAccountService_LoadAccounts_NoAccounts(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_DATA_HOME", filepath.Join(home, ".local", "share"))
 	t.Setenv("XDG_STATE_HOME", filepath.Join(home, ".local", "state"))
-	// Intentionally do NOT create any credential files.
 
 	cfg := &config.Config{}
 	svc := NewAccountService(cfg, nil)
@@ -86,50 +77,96 @@ func TestAccountService_LegacyFallback_NoFiles(t *testing.T) {
 	assert.Nil(t, acc)
 }
 
-// TestAccountService_LegacyFallback_ExplicitConfigStillWins verifies that an explicit config
-// Credentials path is honored (and the existing behavior is preserved).
-func TestAccountService_LegacyFallback_ExplicitConfigWins(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
+// TestAccountService_LoadAccounts_MultipleAccounts verifies multiple accounts
+// sharing the same credentials and that only the first active one is selected.
+func TestAccountService_LoadAccounts_MultipleAccounts(t *testing.T) {
+	tmpRoot := t.TempDir()
 
-	// Put the credential file at a non-default location and point config at it.
-	customDir := filepath.Join(home, "custom")
-	if err := os.MkdirAll(customDir, 0o750); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
-	credPath := filepath.Join(customDir, "creds.json")
-	if err := os.WriteFile(credPath, []byte(`{"installed":{}}`), 0o600); err != nil {
-		t.Fatalf("write: %v", err)
-	}
+	// Both accounts share "google-oauth" credentials, separate tokens
+	writeAccountCredentialFiles(t, tmpRoot, "google-oauth", "personal", true)
+	writeAccountCredentialFiles(t, tmpRoot, "google-oauth", "work", true)
 
-	cfg := &config.Config{Credentials: credPath}
+	t.Setenv("XDG_DATA_HOME", filepath.Join(tmpRoot, "share"))
+	t.Setenv("XDG_STATE_HOME", filepath.Join(tmpRoot, "state"))
+
+	cfg := &config.Config{
+		Accounts: []config.AccountConfig{
+			{ID: "personal", Credentials: "google-oauth", DisplayName: "Personal", Active: true},
+			{ID: "work", Credentials: "google-oauth", DisplayName: "Work", Active: true},
+		},
+	}
 	svc := NewAccountService(cfg, nil)
 
 	acc, err := svc.GetActiveAccount(context.Background())
 	assert.NoError(t, err)
 	assert.NotNil(t, acc)
-	assert.Equal(t, credPath, acc.CredPath)
+	// First active account wins
+	assert.Equal(t, "personal", acc.ID)
+
+	accounts, err := svc.ListAccounts(context.Background())
+	assert.NoError(t, err)
+	assert.Len(t, accounts, 2)
 }
 
-func TestResolveLegacyCredentialPath(t *testing.T) {
+// TestAccountService_AddAccount_ValidateCredentialFile verifies AddAccount checks
+// that the credential file exists at the resolved path.
+func TestAccountService_AddAccount_ValidateCredentialFile(t *testing.T) {
 	tmpRoot := t.TempDir()
+
+	writeAccountCredentialFiles(t, tmpRoot, "newaccount-creds", "newaccount", false)
+
 	t.Setenv("XDG_DATA_HOME", filepath.Join(tmpRoot, "share"))
 	t.Setenv("XDG_STATE_HOME", filepath.Join(tmpRoot, "state"))
 
-	// Empty configured -> default XDG paths.
-	gotToken := resolveLegacyCredentialPath("", "token.json")
-	assert.Equal(t, filepath.Join(tmpRoot, "state", "giztui", "token.json"), gotToken)
+	cfg := &config.Config{}
+	svc := NewAccountService(cfg, nil)
 
-	gotCred := resolveLegacyCredentialPath("", "credentials.json")
-	assert.Equal(t, filepath.Join(tmpRoot, "share", "giztui", "credentials.json"), gotCred)
+	// Should succeed - credential file exists
+	err := svc.AddAccount(context.Background(), &Account{
+		ID:              "newaccount",
+		CredentialsName: "newaccount-creds",
+		DisplayName:     "New Account",
+	})
+	assert.NoError(t, err)
 
-	// Configured absolute path passes through unchanged.
-	abs := filepath.Join(tmpRoot, "x", "creds.json")
-	assert.Equal(t, abs, resolveLegacyCredentialPath(abs, "credentials.json"))
+	// Should fail - credential file does not exist for "nonexistent"
+	err = svc.AddAccount(context.Background(), &Account{
+		ID:              "nonexistent",
+		CredentialsName: "nonexistent-creds",
+		DisplayName:     "Nonexistent",
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "credentials file not found")
+}
 
-	// Configured ~ path is expanded.
-	home, _ := os.UserHomeDir()
-	assert.Equal(t, filepath.Join(home, "creds.json"), resolveLegacyCredentialPath("~/creds.json", "credentials.json"))
+// TestAccountService_AddAccount_MissingCredentialsField verifies AddAccount rejects
+// accounts with empty credentials field.
+func TestAccountService_AddAccount_MissingCredentialsField(t *testing.T) {
+	cfg := &config.Config{}
+	svc := NewAccountService(cfg, nil)
+
+	err := svc.AddAccount(context.Background(), &Account{
+		ID:          "no-creds",
+		DisplayName: "No Creds",
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "credentials field is required")
+}
+
+// TestAccountService_LoadAccounts_MissingCredentialsField verifies that loadAccountsFromConfig
+// returns an error when an account has an empty credentials field.
+func TestAccountService_LoadAccounts_MissingCredentialsField(t *testing.T) {
+	cfg := &config.Config{
+		Accounts: []config.AccountConfig{
+			{ID: "personal", DisplayName: "Personal", Active: true},
+		},
+	}
+	svc := NewAccountService(cfg, nil)
+
+	// Should fail to load - credentials field is empty
+	acc, err := svc.GetActiveAccount(context.Background())
+	assert.Error(t, err)
+	assert.Nil(t, acc)
 }
 
 func TestFileExists(t *testing.T) {

@@ -82,9 +82,7 @@ func TestBuildWelcomeText_UsesCustomShortcuts(t *testing.T) {
 	// Create an App with custom configuration
 	app := &App{
 		Application: tview.NewApplication(),
-		Config: &config.Config{
-			Credentials: "",
-		},
+		Config:      &config.Config{},
 		Keys: config.KeyBindings{
 			Help:        "F1",
 			Search:      "/",
@@ -119,10 +117,7 @@ func TestWelcomeShortcuts_Integration(t *testing.T) {
 	// Create app with mixed custom and default shortcuts
 	app := &App{
 		Application: tview.NewApplication(),
-		Config: &config.Config{
-			// #nosec G101 -- test fixture path, not a real credential.
-			Credentials: "/path/to/creds.json",
-		},
+		Config:      &config.Config{},
 		Keys: config.KeyBindings{
 			Help:        "F1", // Custom
 			Search:      "",   // Empty, should use fallback 's'

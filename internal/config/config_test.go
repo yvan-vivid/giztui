@@ -238,17 +238,17 @@ func TestDefaultConfigPath(t *testing.T) {
 }
 
 func TestDefaultCredentialPaths(t *testing.T) {
-	credPath, tokenPath := DefaultCredentialPaths()
+	credDir, tokenDir := DefaultCredentialPaths()
 
-	// Credentials in XDG_DATA_HOME
-	if credPath != "" {
-		assert.Contains(t, credPath, "giztui")
-		assert.Contains(t, credPath, "credentials.json")
+	// Credentials directory in XDG_DATA_HOME
+	if credDir != "" {
+		assert.Contains(t, credDir, "giztui")
+		assert.Contains(t, credDir, "credentials")
 	}
-	// Token in XDG_STATE_HOME
-	if tokenPath != "" {
-		assert.Contains(t, tokenPath, "giztui")
-		assert.Contains(t, tokenPath, "token.json")
+	// Tokens directory in XDG_STATE_HOME
+	if tokenDir != "" {
+		assert.Contains(t, tokenDir, "giztui")
+		assert.Contains(t, tokenDir, "tokens")
 	}
 }
 
@@ -304,8 +304,6 @@ func TestLoadConfig_ValidFile(t *testing.T) {
 	configFile := filepath.Join(tmpDir, "config.json")
 
 	testConfig := &Config{
-		Credentials: "test-creds",
-		Token:       "test-token",
 		LLM: LLMConfig{
 			Enabled:  false,
 			Provider: "custom",
@@ -325,8 +323,6 @@ func TestLoadConfig_ValidFile(t *testing.T) {
 	assert.NotNil(t, cfg)
 
 	// Should have loaded values
-	assert.Equal(t, "test-creds", cfg.Credentials)
-	assert.Equal(t, "test-token", cfg.Token)
 	assert.False(t, cfg.LLM.Enabled)
 	assert.Equal(t, "custom", cfg.LLM.Provider)
 	assert.Equal(t, "test-model", cfg.LLM.Model)
@@ -349,7 +345,6 @@ func TestSaveConfig(t *testing.T) {
 	configFile := filepath.Join(tmpDir, "test-config.json")
 
 	cfg := DefaultConfig()
-	cfg.Credentials = "test-save-creds"
 	cfg.LLM.Provider = "test-provider"
 
 	err := cfg.SaveConfig(configFile)
@@ -361,7 +356,6 @@ func TestSaveConfig(t *testing.T) {
 	// Verify content by loading it back
 	loadedCfg, err := LoadConfig(configFile)
 	assert.NoError(t, err)
-	assert.Equal(t, "test-save-creds", loadedCfg.Credentials)
 	assert.Equal(t, "test-provider", loadedCfg.LLM.Provider)
 }
 
@@ -477,7 +471,6 @@ func TestLoadTemplate_AbsoluteVsRelativePaths(t *testing.T) {
 // Test JSON marshaling/unmarshaling
 func TestConfig_JSONSerialization(t *testing.T) {
 	original := DefaultConfig()
-	original.Credentials = "test-credentials"
 	original.LLM.Provider = "test-provider"
 
 	// Marshal to JSON
@@ -490,7 +483,6 @@ func TestConfig_JSONSerialization(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Compare key fields
-	assert.Equal(t, original.Credentials, loaded.Credentials)
 	assert.Equal(t, original.LLM.Provider, loaded.LLM.Provider)
 	assert.Equal(t, original.LLM.Enabled, loaded.LLM.Enabled)
 }

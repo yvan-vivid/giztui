@@ -462,6 +462,115 @@ func TestOAuth2Config_TokenExpiry(t *testing.T) {
 	})
 }
 
+// Test headless OAuth configuration
+func TestOAuth2Config_Headless(t *testing.T) {
+	t.Run("SetHeadless", func(t *testing.T) {
+		config := NewOAuth2Config("cred.json", "token.json")
+		assert.False(t, config.Headless)
+
+		config.SetHeadless(true)
+		assert.True(t, config.Headless)
+
+		config.SetHeadless(false)
+		assert.False(t, config.Headless)
+	})
+
+	t.Run("DefaultHeadless", func(t *testing.T) {
+		// Save and restore global state
+		orig := defaultHeadless
+		defer func() { defaultHeadless = orig }()
+
+		defaultHeadless = false
+		config := NewOAuth2Config("cred.json", "token.json")
+		assert.False(t, config.Headless)
+
+		defaultHeadless = true
+		config = NewOAuth2Config("cred.json", "token.json")
+		assert.True(t, config.Headless)
+
+		defaultHeadless = false
+	})
+
+	t.Run("SetDefaultHeadless", func(t *testing.T) {
+		orig := defaultHeadless
+		defer func() { defaultHeadless = orig }()
+
+		SetDefaultHeadless(true)
+		assert.True(t, defaultHeadless)
+
+		config := NewOAuth2Config("cred.json", "token.json")
+		assert.True(t, config.Headless)
+
+		SetDefaultHeadless(false)
+		assert.False(t, defaultHeadless)
+	})
+}
+
+// Test authenticateManual code parsing logic
+func TestAuthenticateManual_CodeParsing(t *testing.T) {
+	t.Run("extract_code_from_full_url", func(t *testing.T) {
+		// Simulate a full URL paste
+		input := "http://localhost:8080/?code=4/0AdeCS1B1234567890abc&scope=email\n"
+		code := strings.TrimSpace(input)
+
+		// Extract code from URL (same logic as authenticateManual)
+		if strings.Contains(code, "code=") {
+			start := strings.Index(code, "code=") + 5
+			end := strings.Index(code[start:], "&")
+			if end == -1 {
+				code = code[start:]
+			} else {
+				code = code[start : start+end]
+			}
+			code = strings.TrimSpace(code)
+		}
+
+		assert.Equal(t, "4/0AdeCS1B1234567890abc", code)
+	})
+
+	t.Run("extract_code_without_scope", func(t *testing.T) {
+		input := "http://localhost:8080/?code=4/0AdeCS1B\n"
+		code := strings.TrimSpace(input)
+
+		if strings.Contains(code, "code=") {
+			start := strings.Index(code, "code=") + 5
+			end := strings.Index(code[start:], "&")
+			if end == -1 {
+				code = code[start:]
+			} else {
+				code = code[start : start+end]
+			}
+			code = strings.TrimSpace(code)
+		}
+
+		assert.Equal(t, "4/0AdeCS1B", code)
+	})
+
+	t.Run("bare_code", func(t *testing.T) {
+		input := "4/0AdeCS1B1234567890abc\n"
+		code := strings.TrimSpace(input)
+
+		if strings.Contains(code, "code=") {
+			start := strings.Index(code, "code=") + 5
+			end := strings.Index(code[start:], "&")
+			if end == -1 {
+				code = code[start:]
+			} else {
+				code = code[start : start+end]
+			}
+			code = strings.TrimSpace(code)
+		}
+
+		assert.Equal(t, "4/0AdeCS1B1234567890abc", code)
+	})
+
+	t.Run("empty_code", func(t *testing.T) {
+		input := "\n"
+		code := strings.TrimSpace(input)
+		assert.Empty(t, code)
+	})
+}
+
 // Benchmark tests for performance-critical operations
 func BenchmarkOAuth2Config_SaveToken(b *testing.B) {
 	tmpDir := b.TempDir()

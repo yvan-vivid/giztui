@@ -127,7 +127,7 @@ func TestArgCompleters_Subcommands(t *testing.T) {
 	}
 	// accounts switch <id>
 	a.Config = &config.Config{}
-	a.Config.Accounts = []config.AccountConfig{{ID: "personal"}, {ID: "work"}}
+	a.Config.Accounts = []config.AccountConfig{{ID: "personal", Credentials: "oauth"}, {ID: "work", Credentials: "oauth"}}
 	if got := completeAccountsArg(a, ""); len(got) != 1 || got[0] != "switch" {
 		t.Fatalf("accounts '' -> %v, want [switch]", got)
 	}

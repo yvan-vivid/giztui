@@ -25,6 +25,7 @@ func main() {
 	setupFlag := flag.Bool("setup", false, "Run interactive setup wizard")
 	versionFlag := flag.Bool("version", false, "Show version information and exit")
 	migrateConfigFlag := flag.Bool("migrate-config", false, "Add missing default options to the config file and exit")
+	headlessFlag := flag.Bool("headless", false, "Use manual OAuth flow for remote/SSH sessions")
 
 	// Override flag usage text to show clean, simple usage
 	flag.Usage = func() {
@@ -34,11 +35,13 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Examples:\n")
 		fmt.Fprintf(os.Stderr, "  %s                        # Run with default configuration\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "  %s --setup                # Run interactive setup wizard\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "  %s --headless             # Manual OAuth for remote/SSH sessions\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "  %s --version              # Show version information\n\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "Options:\n")
 		fmt.Fprintf(os.Stderr, "  --setup\n        %s\n", "Run interactive setup wizard")
 		fmt.Fprintf(os.Stderr, "  --version\n        %s\n", "Show version information and exit")
-		fmt.Fprintf(os.Stderr, "  --migrate-config\n        %s\n\n", "Add missing default options to the config file and exit")
+		fmt.Fprintf(os.Stderr, "  --migrate-config\n        %s\n", "Add missing default options to the config file and exit")
+		fmt.Fprintf(os.Stderr, "  --headless\n        %s\n\n", "Use manual OAuth flow for remote/SSH sessions")
 		fmt.Fprintf(os.Stderr, "Paths follow the XDG Base Directory Specification:\n")
 		fmt.Fprintf(os.Stderr, "  Config:    %s\n", environment.ConfigDir())
 		fmt.Fprintf(os.Stderr, "  Data:      %s\n", environment.DataDir())
@@ -91,6 +94,9 @@ func main() {
 		cfg = config.DefaultConfig()
 	}
 
+	// Set headless mode for OAuth flows (for remote/SSH sessions)
+	auth.SetDefaultHeadless(*headlessFlag)
+
 	// Initialize Gmail service using multi-account logic
 	ctx := context.Background()
 
@@ -130,7 +136,7 @@ func main() {
 			} else if activeCount == 1 {
 				logger.Printf("🎯 Single active account found: %s", activeAccounts[0])
 			} else {
-				logger.Printf("⚠️  No active accounts found, will fall back to legacy configuration")
+				logger.Printf("⚠️  No active accounts found, will attempt default account resolution")
 			}
 
 			// First, validate ALL accounts for UI status (don't break early)
@@ -169,9 +175,9 @@ func main() {
 				if result.IsValid {
 					logger.Printf("✅ Using account for startup: %s (%s) - Email: %s", account.ID, account.DisplayName, result.Email)
 					selectedAccount = account
-					selectedAccount.Email = result.Email // Update account with validated email
-					credPath = environment.ExpandPath(account.CredPath)
-					tokenPath = environment.ExpandPath(account.TokenPath)
+					selectedAccount.Email = result.Email
+					credPath = environment.AccountCredentialsPath(account.CredentialsName)
+					tokenPath = environment.AccountTokenPath(account.ID)
 					break
 				} else {
 					logger.Printf("❌ Account validation failed for %s: %s", account.ID, result.ErrorMsg)
@@ -183,7 +189,7 @@ func main() {
 			if selectedAccount != nil {
 				logger.Printf("🎉 Selected account: %s (%s) - Email: %s", selectedAccount.ID, selectedAccount.DisplayName, selectedAccount.Email)
 			} else {
-				logger.Printf("❌ No valid active account found, falling back to legacy configuration")
+				logger.Printf("❌ No valid active account found, will attempt default account resolution")
 			}
 		}
 
@@ -192,93 +198,28 @@ func main() {
 		}
 	}
 
-	// Graceful multi-level credential fallback if multi-account validation failed
+	// Graceful fallback: if multi-account didn't resolve, check for a single default account
 	if credPath == "" {
 		if logger != nil {
-			logger.Printf("🔄 Starting graceful credential fallback sequence...")
+			logger.Printf("🔄 No valid active account found, attempting default account resolution...")
 		}
 
-		var fallbackMethod string
-		var attemptNumber = 1
+		// Check for a "default" account in the new directory structure
+		defaultCredPath := environment.AccountCredentialsPath("default")
+		defaultTokenPath := environment.AccountTokenPath("default")
 
-		// Level 1: Try config file credentials (if config has credentials)
-		if cfg.Credentials != "" {
+		if _, err := os.Stat(defaultCredPath); err == nil {
+			credPath = defaultCredPath
+			tokenPath = defaultTokenPath
 			if logger != nil {
-				logger.Printf("🎯 Attempt %d: Trying config file credentials: %s", attemptNumber, cfg.Credentials)
+				logger.Printf("✅ Default account credentials found at %s", defaultCredPath)
 			}
-			attemptNumber++
-
-			testCredPath := environment.ExpandPath(cfg.Credentials)
-			testTokenPath := environment.ExpandPath(cfg.Token)
-			if testTokenPath == "" {
-				testTokenPath = environment.TokenPath()
-			}
-
+		} else {
 			if logger != nil {
-				logger.Printf("📍 Resolved paths - creds: %s, token: %s", testCredPath, testTokenPath)
+				logger.Printf("❌ No default account credentials found at %s", defaultCredPath)
+				logger.Printf("💡 Run 'giztui --setup' for setup instructions")
 			}
-
-			if _, err := os.Stat(testCredPath); err == nil {
-				credPath = testCredPath
-				tokenPath = testTokenPath
-				fallbackMethod = "config file"
-				if logger != nil {
-					logger.Printf("✅ Config file credentials found and validated")
-				}
-			} else {
-				if logger != nil {
-					logger.Printf("❌ Config file credentials not found at %s", testCredPath)
-				}
-			}
-		}
-
-		// Level 2: Try hardcoded default credentials (final fallback)
-		if credPath == "" {
-			if logger != nil {
-				if cfg.Credentials != "" {
-					logger.Printf("🎯 Attempt %d: Config credentials failed, trying XDG defaults as final fallback", attemptNumber)
-				} else {
-					logger.Printf("🎯 Attempt %d: No config credentials (disabled with prefix), trying XDG defaults", attemptNumber)
-				}
-			}
-
-			defaultCredPath := environment.CredentialsPath()
-			testCredPath := defaultCredPath
-			testTokenPath := environment.TokenPath()
-
-			if logger != nil {
-				logger.Printf("📍 Resolved XDG paths - creds: %s, token: %s", testCredPath, testTokenPath)
-			}
-
-			if testCredPath != "" {
-				if _, err := os.Stat(testCredPath); err == nil {
-					credPath = testCredPath
-					tokenPath = testTokenPath
-					fallbackMethod = "XDG defaults"
-					if logger != nil {
-						logger.Printf("✅ XDG default credentials found and validated")
-					}
-				} else {
-					if logger != nil {
-						logger.Printf("❌ XDG default credentials not found at %s", testCredPath)
-					}
-				}
-			}
-		}
-
-		// Final validation - if still no valid credentials found, exit fatally
-		if credPath == "" {
-			if logger != nil {
-				logger.Printf("❌ All credential fallback methods exhausted")
-				logger.Printf("💡 Tried config file and XDG defaults")
-				logger.Printf("💡 Please ensure at least one credential file exists and is accessible")
-			}
-			log.Fatal("Gmail credentials file is required. No valid credentials found in config file or XDG default locations.")
-		}
-
-		// Success - log which method worked
-		if logger != nil {
-			logger.Printf("🚀 Initializing Gmail service with %s credentials (creds: %s, token: %s)", fallbackMethod, credPath, tokenPath)
+			log.Fatal("No valid credentials found. Place your credentials.json in ~/.local/share/giztui/credentials/<name>.json and configure an account in config.json.")
 		}
 	}
 
@@ -374,10 +315,17 @@ func runSetupWizard() {
 	fmt.Println("=======================")
 	fmt.Println()
 
+	// Create directories if they don't exist
+	credDir := environment.CredentialsDir()
+	tokenDir := environment.TokensDir()
+	for _, dir := range []string{credDir, tokenDir} {
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			fmt.Printf("⚠️  Could not create directory %s: %v\n", dir, err)
+		}
+	}
+
 	// Check if default config already exists
 	defaultConfigPath := environment.ConfigPath()
-	credPath := environment.CredentialsPath()
-	tokenPath := environment.TokenPath()
 
 	if _, err := os.Stat(defaultConfigPath); err == nil {
 		fmt.Printf("✅ Configuration file already exists: %s\n", defaultConfigPath)
@@ -385,34 +333,30 @@ func runSetupWizard() {
 		fmt.Printf("📝 Will create configuration file: %s\n", defaultConfigPath)
 	}
 
-	if _, err := os.Stat(credPath); err == nil {
-		fmt.Printf("✅ Credentials file found: %s\n", credPath)
-	} else {
-		fmt.Printf("⚠️  Credentials file missing: %s\n", credPath)
-		fmt.Println()
-		fmt.Println("📋 To set up Gmail API credentials:")
-		fmt.Println("1. Go to https://console.cloud.google.com/")
-		fmt.Println("2. Create a new project or select existing one")
-		fmt.Println("3. Enable Gmail API")
-		fmt.Println("4. Create OAuth 2.0 credentials (Desktop application)")
-		fmt.Println("5. Download the JSON file and save it as:")
-		fmt.Printf("   %s\n", credPath)
-		fmt.Println()
-	}
-
-	if _, err := os.Stat(tokenPath); err == nil {
-		fmt.Printf("✅ Token file exists: %s\n", tokenPath)
-	} else {
-		fmt.Printf("🔐 Token will be created on first login: %s\n", tokenPath)
-	}
+	fmt.Println()
+	fmt.Println("📁 Credential directories:")
+	fmt.Printf("   Credentials: %s\n", credDir)
+	fmt.Printf("   Tokens:      %s\n", tokenDir)
+	fmt.Println()
+	fmt.Println("To add an account:")
+	fmt.Printf("   1. Place your OAuth2 credentials.json as %s/<name>.json\n", credDir)
+	fmt.Printf("   2. The token will be created automatically at %s/<name>.json on first login\n", tokenDir)
+	fmt.Println()
+	fmt.Println("📋 To set up Gmail API credentials:")
+	fmt.Println("   1. Go to https://console.cloud.google.com/")
+	fmt.Println("   2. Create a new project or select existing one")
+	fmt.Println("   3. Enable Gmail API")
+	fmt.Println("   4. Create OAuth 2.0 credentials (Desktop application)")
+	fmt.Println("   5. Download the JSON file and save it as:")
+	fmt.Printf("      %s/<name>.json\n", credDir)
+	fmt.Println()
 
 	// Create default config if it doesn't exist
 	if _, err := os.Stat(defaultConfigPath); os.IsNotExist(err) {
-		fmt.Println()
 		fmt.Print("📄 Create default configuration file? [Y/n]: ")
 
 		var response string
-		_, _ = fmt.Scanln(&response) // User input - error not actionable
+		_, _ = fmt.Scanln(&response)
 
 		if response == "" || strings.ToLower(response) == "y" || strings.ToLower(response) == "yes" {
 			cfg := config.DefaultConfig()
@@ -429,7 +373,7 @@ func runSetupWizard() {
 	fmt.Printf("   %s\n", os.Args[0])
 	fmt.Println()
 	fmt.Println("💡 Tips:")
-	fmt.Println("• Edit the config file to customize LLM settings")
+	fmt.Println("• Add account entries to the 'accounts' array in config.json")
 	fmt.Println("• Run with -h to see all options")
 }
 

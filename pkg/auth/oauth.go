@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -17,12 +18,22 @@ import (
 	"google.golang.org/api/option"
 )
 
+// defaultHeadless controls whether OAuth flows use manual code paste by default.
+var defaultHeadless bool
+
+// SetDefaultHeadless sets the default headless mode for all OAuth flows.
+// When true, the OAuth flow uses manual code paste instead of a local HTTP server.
+func SetDefaultHeadless(headless bool) {
+	defaultHeadless = headless
+}
+
 // OAuth2Config holds OAuth2 configuration
 type OAuth2Config struct {
 	CredentialsPath string
 	TokenPath       string
 	Scopes          []string
 	AccountName     string // Optional account name for better user messaging
+	Headless        bool   // Use manual code paste instead of local HTTP server
 }
 
 // NewOAuth2Config creates a new OAuth2 configuration
@@ -31,12 +42,18 @@ func NewOAuth2Config(credentialsPath string, tokenPath string, scopes ...string)
 		CredentialsPath: credentialsPath,
 		TokenPath:       tokenPath,
 		Scopes:          scopes,
+		Headless:        defaultHeadless,
 	}
 }
 
 // SetAccountName sets the account name for better user messaging during OAuth
 func (c *OAuth2Config) SetAccountName(accountName string) {
 	c.AccountName = accountName
+}
+
+// SetHeadless sets headless mode for manual code paste
+func (c *OAuth2Config) SetHeadless(headless bool) {
+	c.Headless = headless
 }
 
 // LoadCredentials loads OAuth2 credentials from file
@@ -141,8 +158,75 @@ func (c *OAuth2Config) GetToken(ctx context.Context) (*oauth2.Token, error) {
 	return token, nil
 }
 
-// authenticate performs OAuth2 authentication with local server
+// authenticate performs OAuth2 authentication
 func (c *OAuth2Config) authenticate(ctx context.Context, config *oauth2.Config) (*oauth2.Token, error) {
+	if c.Headless {
+		return c.authenticateManual(ctx, config)
+	}
+	return c.authenticateWithServer(ctx, config)
+}
+
+// authenticateManual performs OAuth2 authentication via manual code paste (for headless/remote use)
+func (c *OAuth2Config) authenticateManual(ctx context.Context, config *oauth2.Config) (*oauth2.Token, error) {
+	// Use localhost redirect (required by Google Desktop app type)
+	localConfig := &oauth2.Config{
+		ClientID:     config.ClientID,
+		ClientSecret: config.ClientSecret,
+		RedirectURL:  "http://localhost:8080",
+		Scopes:       config.Scopes,
+		Endpoint:     config.Endpoint,
+	}
+
+	authURL := localConfig.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
+
+	if c.AccountName != "" {
+		fmt.Printf("\n🔐 Authorization required for account: %s\n", c.AccountName)
+	} else {
+		fmt.Printf("\n🔐 Authorization required\n")
+	}
+	fmt.Printf("1. Open this link:\n   %s\n\n", authURL)
+	fmt.Printf("2. Grant access to the application\n")
+	fmt.Printf("3. The browser will redirect to a URL like:\n")
+	fmt.Printf("   http://localhost:8080/?code=4/0A...&scope=...\n\n")
+	fmt.Printf("4. Copy the authorization code from the URL and paste it below\n\n")
+
+	// Read code from stdin
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Print("Paste authorization code: ")
+	code, err := reader.ReadString('\n')
+	if err != nil {
+		return nil, fmt.Errorf("failed to read authorization code: %w", err)
+	}
+	code = strings.TrimSpace(code)
+
+	// Handle full URL paste — extract just the code parameter
+	if strings.Contains(code, "code=") {
+		start := strings.Index(code, "code=") + 5
+		end := strings.Index(code[start:], "&")
+		if end == -1 {
+			code = code[start:]
+		} else {
+			code = code[start : start+end]
+		}
+		code = strings.TrimSpace(code)
+	}
+
+	if code == "" {
+		return nil, fmt.Errorf("authorization code was empty")
+	}
+
+	// Exchange code for token
+	token, err := localConfig.Exchange(ctx, code)
+	if err != nil {
+		return nil, fmt.Errorf("could not exchange authorization code for token: %w", err)
+	}
+
+	fmt.Printf("✅ Authorization successful!\n")
+	return token, nil
+}
+
+// authenticateWithServer performs OAuth2 authentication with a local HTTP server
+func (c *OAuth2Config) authenticateWithServer(ctx context.Context, config *oauth2.Config) (*oauth2.Token, error) {
 	// Create a local server to capture the authorization code
 	codeChan := make(chan string, 1)
 	errorChan := make(chan error, 1)

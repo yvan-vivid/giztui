@@ -1,6 +1,12 @@
 {
-  "credentials": "~/.config/giztui/credentials.json",
-  "token": "~/.config/giztui/token.json",
+  "accounts": [
+    {
+      "id": "personal",
+      "credentials": "google-oauth",
+      "display_name": "Personal Gmail",
+      "active": true
+    }
+  ],
   "llm": {
     "enabled": true,
     "provider": "ollama",

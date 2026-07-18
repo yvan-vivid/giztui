@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ajramos/giztui/internal/config"
+	"github.com/ajramos/giztui/internal/environment"
 	"github.com/derailed/tview"
 )
 
@@ -108,15 +108,13 @@ func (a *App) buildWelcomeText(loading bool, accountEmail string, dots int) stri
 	}
 
 	// Setup guide for first run / missing credentials
-	configuredCredPath := strings.TrimSpace(a.Config.Credentials)
-	if configuredCredPath == "" {
-		configuredCredPath, _ = config.DefaultCredentialPaths()
-	}
+	credDir := environment.CredentialsDir()
 	b.WriteString("[red::b]Credentials not found.[-:-:-]\n\n")
 	b.WriteString("Setup:\n")
 	b.WriteString("  1. Download OAuth credentials from Google Cloud Console.\n")
-	fmt.Fprintf(&b, "  2. Place the file at `%s`.\n", configuredCredPath)
-	b.WriteString("  3. Restart the application.\n\n")
+	fmt.Fprintf(&b, "  2. Place the file at `%s/<name>.json`.\n", credDir)
+	b.WriteString("  3. Add an account entry in config.json.\n")
+	b.WriteString("  4. Restart the application.\n\n")
 	b.WriteString("See README.md for details.\n\n")
 	// Use configured shortcuts for credentials missing state
 	shortcuts := a.getWelcomeShortcuts(false)

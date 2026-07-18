@@ -37,14 +37,35 @@ func ConfigPath() string {
 	return filepath.Join(ConfigDir(), "config.json")
 }
 
-// CredentialsPath returns the full path to the OAuth2 credentials file.
+// CredentialsPath returns the full path to the default OAuth2 credentials file.
 func CredentialsPath() string {
 	return filepath.Join(DataDir(), "credentials.json")
 }
 
-// TokenPath returns the full path to the OAuth2 token file.
+// TokenPath returns the full path to the default OAuth2 token file.
 func TokenPath() string {
 	return filepath.Join(StateDir(), "token.json")
+}
+
+// CredentialsDir returns the directory containing per-account credential files.
+func CredentialsDir() string {
+	return filepath.Join(DataDir(), "credentials")
+}
+
+// TokensDir returns the directory containing per-account token files.
+func TokensDir() string {
+	return filepath.Join(StateDir(), "tokens")
+}
+
+// AccountCredentialsPath returns the path to the credential file for the given account.
+// credName is the stem name of the credentials file (without .json extension).
+func AccountCredentialsPath(credName string) string {
+	return filepath.Join(CredentialsDir(), credName+".json")
+}
+
+// AccountTokenPath returns the path to the token file for the given account ID.
+func AccountTokenPath(accountID string) string {
+	return filepath.Join(TokensDir(), accountID+".json")
 }
 
 // LogPath returns the full path to the log file.

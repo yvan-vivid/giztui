@@ -904,15 +904,14 @@ type AccountService interface {
 
 // Account represents a configured Gmail account
 type Account struct {
-	ID          string        `json:"id"`           // unique identifier (e.g., "personal", "work")
-	Email       string        `json:"email"`        // user@gmail.com (populated after first auth)
-	DisplayName string        `json:"display_name"` // "Personal Gmail", "Work Account"
-	CredPath    string        `json:"cred_path"`    // path to credentials.json
-	TokenPath   string        `json:"token_path"`   // path to token.json
-	IsActive    bool          `json:"is_active"`    // currently selected account
-	Status      AccountStatus `json:"status"`       // connection status
-	LastUsed    time.Time     `json:"last_used"`    // last time account was active
-	Client      *gmail.Client `json:"-"`            // Gmail API client (not serialized)
+	ID              string        `json:"id"`               // unique identifier (e.g., "personal", "work")
+	CredentialsName string        `json:"credentials_name"` // stem name of the OAuth2 credentials file (e.g., "google-oauth")
+	Email           string        `json:"email"`            // user@gmail.com (populated after first auth)
+	DisplayName     string        `json:"display_name"`     // "Personal Gmail", "Work Account"
+	IsActive        bool          `json:"is_active"`        // currently selected account
+	Status          AccountStatus `json:"status"`           // connection status
+	LastUsed        time.Time     `json:"last_used"`        // last time account was active
+	Client          *gmail.Client `json:"-"`                // Gmail API client (not serialized)
 }
 
 // AccountStatus represents the connection state of an account

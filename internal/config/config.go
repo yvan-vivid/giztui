@@ -55,9 +55,8 @@ type ThemeConfig struct {
 // AccountConfig holds configuration for a single Gmail account
 type AccountConfig struct {
 	ID          string `json:"id"`           // unique identifier (e.g., "personal", "work")
+	Credentials string `json:"credentials"`  // stem name of the OAuth2 credentials file (required, e.g., "google-oauth")
 	DisplayName string `json:"display_name"` // human-readable name for the account
-	Credentials string `json:"credentials"`  // path to credentials.json for this account
-	Token       string `json:"token"`        // path to token.json for this account
 	Active      bool   `json:"active"`       // whether this is the currently active account
 }
 
@@ -65,10 +64,6 @@ type AccountConfig struct {
 type Config struct {
 	// Multi-account support
 	Accounts []AccountConfig `json:"accounts,omitempty"`
-
-	// Legacy single-account support (for backward compatibility)
-	Credentials string `json:"credentials,omitempty"`
-	Token       string `json:"token,omitempty"`
 
 	// LLM configuration (unified)
 	LLM LLMConfig `json:"llm"`
@@ -1031,7 +1026,7 @@ func DefaultConfigPath() string {
 
 // DefaultCredentialPaths returns the default paths for credentials and token
 func DefaultCredentialPaths() (string, string) {
-	return environment.CredentialsPath(), environment.TokenPath()
+	return environment.CredentialsDir(), environment.TokensDir()
 }
 
 // DefaultCacheDir returns the default cache directory path

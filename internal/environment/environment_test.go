@@ -208,3 +208,39 @@ func TestXDGPrecedence(t *testing.T) {
 		})
 	}
 }
+
+func TestCredentialsDir(t *testing.T) {
+	t.Setenv("XDG_DATA_HOME", "")
+	home, _ := os.UserHomeDir()
+	expected := filepath.Join(home, ".local", "share", appName, "credentials")
+	if got := CredentialsDir(); got != expected {
+		t.Errorf("CredentialsDir() = %q, want %q", got, expected)
+	}
+}
+
+func TestTokensDir(t *testing.T) {
+	t.Setenv("XDG_STATE_HOME", "")
+	home, _ := os.UserHomeDir()
+	expected := filepath.Join(home, ".local", "state", appName, "tokens")
+	if got := TokensDir(); got != expected {
+		t.Errorf("TokensDir() = %q, want %q", got, expected)
+	}
+}
+
+func TestAccountCredentialsPath(t *testing.T) {
+	t.Setenv("XDG_DATA_HOME", "")
+	home, _ := os.UserHomeDir()
+	expected := filepath.Join(home, ".local", "share", appName, "credentials", "google-oauth.json")
+	if got := AccountCredentialsPath("google-oauth"); got != expected {
+		t.Errorf("AccountCredentialsPath(\"google-oauth\") = %q, want %q", got, expected)
+	}
+}
+
+func TestAccountTokenPath(t *testing.T) {
+	t.Setenv("XDG_STATE_HOME", "")
+	home, _ := os.UserHomeDir()
+	expected := filepath.Join(home, ".local", "state", appName, "tokens", "work.json")
+	if got := AccountTokenPath("work"); got != expected {
+		t.Errorf("AccountTokenPath(\"work\") = %q, want %q", got, expected)
+	}
+}
